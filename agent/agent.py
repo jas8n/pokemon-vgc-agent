@@ -8,8 +8,11 @@ Each phase hands off to pokeagent/:
   team_preview  pokeagent.preview.choose_lineup  (simulates candidate fours against theirs)
   moving        pokeagent.search.decide           (every pairing of our options vs theirs)
 
-Every card we see is remembered (logs/cards_seen.jsonl, and per match in logs/match_<id>.json)
-because roster entries only carry card ids; the full sets appear only while they're on offer.
+Every match starts with empty memory (Official Rules section 5). Within a match, each card we see
+is kept in logs/match_<id>.json, because roster entries only carry card ids and the full sets
+appear only while they're on offer; that file is only for resuming the same match after a crash.
+logs/cards_seen.jsonl is written for offline analysis and is never read by the agent.
+logs/decisions_<id>.jsonl records every action sent, with timestamps (section 9 records).
 Any exception falls back to a legal default so a bug never costs a turn. Other games (Werewolf)
 get the first legal action, like the starter placeholder.
 """
@@ -44,21 +47,10 @@ def _log(msg: str) -> None:
     print(f"[pokeagent] {msg}", flush=True)
 
 
-def _load_catalog() -> dict[str, dict]:
-    cards: dict[str, dict] = {}
-    try:
-        for line in CATALOG.read_text().splitlines():
-            c = json.loads(line)
-            cards[c["card_id"]] = c
-    except Exception:
-        pass
-    return cards
-
-
 class PokemonAgent:
     def __init__(self) -> None:
-        self.cards: dict[str, dict] = _load_catalog()   # card_id -> full card
-        self.catalog_ids = set(self.cards)
+        self.cards: dict[str, dict] = {}   # card_id -> full card, this match only
+        self.catalog_ids: set[str] = set()
         self.session = ""
         self.me = ""
         self.my_ids: list[str] = []
@@ -143,7 +135,22 @@ class PokemonAgent:
             self._dump(obs, state, "error")
             result = WithReasoning(smoke_agent.choose_action(state, None), "Playing a safe default move.")
         _log(f"{phase} decided in {time.time() - t0:.1f}s")
+        self._record(state, phase, result, time.time() - t0)
         return result
+
+    def _record(self, state: GameState, phase: str, result, seconds: float) -> None:
+        try:
+            LOG_DIR.mkdir(exist_ok=True)
+            action = result.action if isinstance(result, WithReasoning) else result
+            reason = result.reasoning_summary if isinstance(result, WithReasoning) else None
+            if hasattr(action, "action_id"):
+                action = {"action_id": action.action_id}
+            with (LOG_DIR / f"decisions_{self.session}.jsonl").open("a") as f:
+                f.write(json.dumps({"time": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "phase": phase,
+                                    "state_version": state.state_version, "seconds": round(seconds, 2),
+                                    "action": action, "reason": reason}, default=str) + "\n")
+        except Exception:
+            pass
 
     def _dump(self, obs: dict, state: GameState, tag: str) -> None:
         try:

@@ -1,3 +1,55 @@
+# Pokémon VGC Doubles Draft Agent (AltruAgent Tournament entry)
+
+An autonomous, **pure-code** agent for `pokemon_vgc_doubles_draft`. It uses **no LLM, no model
+service and no external API**: every decision comes from a damage calculator and a search run
+locally. It is built on the official starter kit, which is kept below unchanged.
+
+## How it runs
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env          # then set ALTRUAGENT_OFFICIAL_AGENT_KEY (never committed)
+python -m agent --check-tournament
+python -m agent --tournament  # tournament games (python -m agent --match for test matches)
+```
+
+Requires Python 3.11+. The agent is `agent/agent.py` (`create_agent()`), the starter's default.
+
+## What decides each move
+
+| Phase | Code | How |
+|---|---|---|
+| Draft (15 s per pick) | `pokeagent/draft.py`, `pokeagent/roles.py` | Scores each offered card on general strength (a fixed prior table plus 1v1 damage matchups against the pool), fit with our roster (speed control, Fake Out/Intimidate, Trick Room and weather combos, shared weaknesses), matchups against the opponent's picks, and denial value. |
+| Team Preview | `pokeagent/preview.py` | Ranks the 15 possible fours against the opponent's six, plays short simulated games against their likely fours, then picks the leads by searching turn 1. |
+| Battle turns | `pokeagent/search.py`, `pokeagent/engine.py`, `pokeagent/calc.py` | Builds the board from the observation (`pokeagent/platform.py`), simulates every pairing of our options with the opponent's, models the opponent as preferring their own best replies, and plays the option that does best in expectation with a worst-case guard. |
+
+Components that materially affect gameplay:
+
+- `pokeagent/calc.py`: Gen 9 damage formula, following Smogon's damage calculator.
+- `pokeagent/engine.py`: our own doubles turn resolver (speed order, priority, Protect, redirection, Intimidate, weather, terrain, Trick Room, Tailwind, items, abilities).
+- `pokeagent/dex.py`: Pokédex, move and type data from the `poke-env` package's static Showdown data files (a pip dependency, MIT licensed).
+- `pokeagent/roles.py` `META_PRIOR`: a fixed, hand-written strength table for species, written before the submission deadline.
+- `pokeagent/sample_cards.py`: example sets used only for offline testing.
+
+**Information use.** The agent reads only its own seat's observations through the starter's MCP
+connection. Each match starts with empty memory: within a match it keeps the cards it has seen
+in `logs/match_<session>.json` (used only to resume that same match after a crash). It never reads
+data from earlier matches. `logs/cards_seen.jsonl` is written for offline analysis only.
+
+**Records.** `logs/decisions_<session>.jsonl` logs every action sent, with its timestamp, phase,
+state version and public reason. Run output can also be kept with
+`python -m agent --tournament 2>&1 | tee logs/run_$(date +%F).log`.
+
+Not published: the `.env` file holding the Official Agent Key. Platform game guide:
+<https://api.altruagent-game.com/skill/pokemon>.
+
+Offline tools (not used in play): `tools/compare_calc.py` cross-checks the calculator against
+poke-env, `tools/fake_platform.py` plays the real agent through a simulated platform, and
+`python -m pokeagent.arena` runs full offline matches between agent variants.
+
+---
+
 # AltruAgent Starter
 
 A Python starter kit for building your agent for the AltruAgent tournament.
