@@ -11,6 +11,7 @@ dependencies = [
                            # pinned to the 1.x line to match Agent_ACP's own gameapi
                            # dependency (mcp>=1.12.0, 1.28.1 actually installed there)
                            # and its scripts' exact import names.
+    "poke-env>=0.16,<0.17",  # Showdown's Gen 9 Pokédex/move/type data for pokeagent/
 ]
 
 [project.optional-dependencies]
