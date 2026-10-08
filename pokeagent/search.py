@@ -211,6 +211,7 @@ def decide(state: State, our_options: list[list[Action]], side: int = 0, opp_opt
         p_new = _softmax(my_vals, beta * 2)
         p = [0.5 * a + 0.5 * b for a, b in zip(p, p_new)]
 
+    q = _blend_protect_prior(state, opp, J1, q)
     likely = sorted(range(n1), key=lambda j: -q[j])
     mass, top = 0.0, []
     for j in likely:
@@ -245,6 +246,43 @@ def _drop_failing(state: State, side: int, slot: int, options: list[Action]) -> 
         return options
     kept = [o for o in options if not (o[0] == "move" and o[1] in FIRST_TURN_ONLY)]
     return kept or options
+
+
+# Real opponents use Protect more often, and less predictably, than our model of them expects: on 255
+# live opponent decisions its Protect forecasts scored worse than a flat base rate (Brier 0.224 vs
+# ~0.17), and blending in the base rate cut held-out error to 0.183. So each opponent Pokémon's chance
+# of protecting is pulled toward PROTECT_BASE_RATE when Protect is available (not used last turn).
+PROTECT_PRIOR_BLEND = 0.6
+PROTECT_BASE_RATE = 0.28
+_PROTECT = {"protect", "detect", "spikyshield", "kingsshield", "silktrap", "banefulbunker", "burningbulwark", "obstruct"}
+
+
+def _blend_protect_prior(state: State, opp: int, J1, q: list[float]) -> list[float]:
+    if not PROTECT_PRIOR_BLEND:
+        return q
+    q = list(q)
+    for sl in (0, 1):
+        mon = state.sides[opp].active_mon(sl)
+        if mon is None or mon.protect_streak:
+            continue
+        prot = [j for j in range(len(J1)) if J1[j][sl][0] == "move" and J1[j][sl][1] in _PROTECT]
+        if not prot or len(prot) == len(J1):
+            continue
+        p = sum(q[j] for j in prot)
+        target = (1 - PROTECT_PRIOR_BLEND) * p + PROTECT_PRIOR_BLEND * PROTECT_BASE_RATE
+        other = [j for j in range(len(J1)) if j not in set(prot)]
+        if p <= 1e-9:
+            for j in prot:
+                q[j] = target / len(prot)
+        else:
+            for j in prot:
+                q[j] *= target / p
+        rest = sum(q[j] for j in other)
+        if rest > 0:
+            for j in other:
+                q[j] *= (1 - target) / rest
+    z = sum(q)
+    return [x / z for x in q]
 
 
 def _softmax(vals: list[float], beta: float) -> list[float]:
