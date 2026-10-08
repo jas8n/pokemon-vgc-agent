@@ -24,6 +24,7 @@ from pokeagent.sample_cards import SAMPLE_CARDS
 from pokeagent.sim import policy_greedy, replace_best
 
 ME, OPP = "agent-me", "agent-opp"
+DIAG: list | None = None  # set to a list to record (turn, agent's choice, choice from the true state)
 STATUS_OUT = {"brn": "BRN", "par": "PAR", "psn": "PSN", "tox": "TOX", "slp": "SLP", "frz": "FRZ"}
 
 
@@ -55,7 +56,8 @@ def summary(mon: Mon, opponent: bool, active: bool) -> dict:
         "status": "FNT" if mon.fainted else STATUS_OUT.get(mon.status),
         "ability": mon.ability, "item": mon.item, "types": [t.upper() for t in mon.types],
         "base_stats": entry["baseStats"], "boosts": dict(mon.boosts),
-        "moves": {m: {} for m in mon.build.moves}, "fainted": mon.fainted, "active": active,
+        "moves": [] if opponent else list(mon.build.moves),  # the real platform shows no opponent moves
+        "fainted": mon.fainted, "active": active,
         "revealed": mon.revealed,
     }
 
@@ -155,7 +157,7 @@ def to_engine(sd: Side, choice: dict) -> list:
     return out
 
 
-def run_match(rng: random.Random, verbose: bool = False) -> int:
+def run_match(rng: random.Random, verbose: bool = False, me_first: bool = True) -> int:
     agent = PokemonAgent()
     agent.cards = {}
     pool = rng.sample(SAMPLE_CARDS, 18)
@@ -163,7 +165,7 @@ def run_match(rng: random.Random, verbose: bool = False) -> int:
     available = list(pool)
     naive = arena.AGENTS["naive"]
     for n, turn in enumerate(arena.SNAKE):
-        seat = ME if turn == "A" else OPP
+        seat = ME if (turn == "A") == me_first else OPP
         items = {to_id(c["item"]) for c in rosters[seat]}
         offer = [c for c in available if to_id(c["item"]) not in items]
         if seat == ME:
@@ -239,6 +241,11 @@ def run_match(rng: random.Random, verbose: bool = False) -> int:
                 o = next((o for o in opts if o.get("type") == "move" and to_id(o["move_id"]) == a[1]), None)
                 assert o is not None, f"illegal move {a} in {opts}"
                 assert (not o["targets"] and a[2] in (0, None)) or a[2] in o["targets"], f"bad target {a} {o['targets']}"
+        if DIAG is not None:
+            from pokeagent.search import decide as _decide
+            from pokeagent.engine import slot_options as _so
+            truth = _decide(st, [_so(st, 0, 0), _so(st, 0, 1)], side=0, budget_s=8, depth=2)
+            DIAG.append((st.turn, tuple(mine), tuple(truth)))
         theirs = policy_greedy(st, 1, rng)
         if verbose:
             print(f"T{st.turn} us {mine} them {theirs}")
@@ -261,7 +268,7 @@ def main() -> None:
     wins = [0, 0, 0]
     t0 = time.time()
     for m in range(args.matches):
-        w = run_match(rng, verbose=args.v)
+        w = run_match(rng, verbose=args.v, me_first=(m % 2 == 0))  # odd matches: the opponent picks first
         wins[w if w >= 0 else 2] += 1
         print(f"match {m + 1}: {['WIN', 'LOSS', 'DRAW'][w if w >= 0 else 2]} ({time.time() - t0:.0f}s)", flush=True)
     print(f"agent {wins[0]} - {wins[1]} naive (draws {wins[2]})")

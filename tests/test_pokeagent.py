@@ -122,3 +122,12 @@ def test_battle_log_facts():
     assert st.sides[0].mons[1].turns_out == 0  # Iron Hands came in during turn 2: Fake Out works on turn 3
     assert st.sides[0].mons[0].turns_out == 2
     assert st.sides[1].mons[0].protect_streak == 0  # protected on turn 1, not turn 2
+
+
+def test_unseen_opponent_card_gets_a_real_moveset():
+    from pokeagent.platform import summary_build
+    b = summary_build({"species": "incineroar", "name": "Incineroar", "ability": "intimidate", "moves": []})
+    assert "fakeout" in b.moves and len(b.moves) == 4 and b.ability == "intimidate"
+    from pokeagent.guess import guess_card, with_revealed
+    card = with_revealed(guess_card("incineroar"), ["Knock Off"])
+    assert card["moves"][0] == "knockoff" and len(card["moves"]) == 4

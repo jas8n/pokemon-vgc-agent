@@ -31,6 +31,7 @@ from examples import smoke_agent
 from pokeagent import draft as drafting
 from pokeagent import preview as previewing
 from pokeagent.dex import to_id
+from pokeagent.guess import guess_card, with_revealed
 from pokeagent.engine import PROTECT_MOVES, Resolver, move_data, slot_options
 from pokeagent.model import Build
 from pokeagent.platform import parse_board, prune_ally_hits, template_options, to_platform
@@ -191,12 +192,12 @@ class PokemonAgent:
         species = (roster_entry or {}).get("species")
         if not species:
             return None
-        # A set we never saw (picked before our first look): reuse a known card of that species
+        # A set we never saw (picked before our first look): reuse a card of that species seen this
+        # match, else a stand-in set from the learnset data
         for c in self.cards.values():
             if to_id(c.get("species")) == to_id(species):
                 return c
-        return {"card_id": card_id or to_id(species), "species": species, "item": "", "ability": "",
-                "nature": "Serious", "level": 50, "evs": DEFAULT_EVS, "moves": []}
+        return {**guess_card(species), "card_id": card_id or to_id(species)}
 
     # ---------------- team preview ----------------
     def _builds_from_preview(self, roster: list[dict], ids: list[str]) -> list[Build]:
@@ -211,6 +212,8 @@ class PokemonAgent:
             key = to_id(entry.get("species") or entry.get("name"))
             card = by_species.get(key) or next(
                 (c for k, c in by_species.items() if k.startswith(key) or key.startswith(k)), None)
+            if card is None and not entry.get("moves"):
+                card = guess_card(entry.get("species") or entry.get("name"), to_id(entry.get("ability")))
             if card is None:
                 moves = entry.get("moves") or []
                 card = {"card_id": key, "species": entry.get("species") or entry.get("name"),
@@ -253,11 +256,19 @@ class PokemonAgent:
         mine_sp = {to_id(self.cards[c]["species"]) for c in self.my_ids if c in self.cards}
         my_builds = {k: b for k, b in seen.items() if k in mine_sp} or seen
         opp_builds = {k: b for k, b in seen.items() if k not in mine_sp}
+        log = obs.get("protocol_log")
+        facts = read_log(log) if log else None
+        # Opponents whose card we never saw: stand-in set, with every move they've shown so far
+        opp_player = "p1" if my_player(obs) == "p2" else "p2"
+        for e in list((obs.get("opponent_team") or {}).values()) + list(obs.get("opponent_active_pokemon") or []):
+            sp = to_id((e or {}).get("species"))
+            if sp and sp not in opp_builds and sp not in my_builds:
+                revealed = sorted((facts.moves_used if facts else {}).get((opp_player, sp), set()))
+                opp_builds[sp] = Build.from_card(with_revealed(guess_card(sp, to_id(e.get("ability"))), revealed))
         view = parse_board(obs, my_builds, opp_builds, template=template)
         st = view.state
-        log = obs.get("protocol_log")
-        if log:
-            apply_log(st, read_log(log), my_player(obs))
+        if facts is not None:
+            apply_log(st, facts, my_player(obs))
         else:
             self._track_turns(st)
 

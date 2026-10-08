@@ -30,6 +30,7 @@ Components that materially affect gameplay:
 - `pokeagent/engine.py`: our own doubles turn resolver (speed order, priority, Protect, redirection, Intimidate, weather, terrain, Trick Room, Tailwind, items, abilities).
 - `pokeagent/dex.py`: Pokédex, move and type data from the `poke-env` package's static Showdown data files (a pip dependency, MIT licensed).
 - `pokeagent/roles.py` `META_PRIOR`: a fixed, hand-written strength table for species, written before the submission deadline.
+- `pokeagent/guess.py`: a stand-in set for an opponent card drafted before we saw the pool, built from Showdown's learnset data plus general knowledge of usual support moves; moves the opponent reveals in battle replace the guesses.
 - `pokeagent/sample_cards.py`: example sets used only for offline testing.
 
 **Information use.** The agent reads only its own seat's observations through the starter's MCP

@@ -96,7 +96,12 @@ def card_build(card: dict) -> Build | None:
 
 
 def summary_build(summary: dict) -> Build:
-    """Fallback when we don't have the card: build from what the observation shows."""
+    """Fallback when we don't have the card: build from what the observation shows. Opponent
+    summaries list no moves, so an unseen card gets a stand-in set from the learnset data."""
+    listed = summary.get("moves")
+    if not listed:
+        from .guess import guess_card
+        return Build.from_card(guess_card(summary.get("species") or summary.get("name"), to_id(summary.get("ability"))))
     card = {
         "card_id": summary.get("species"),
         "species": summary.get("species") or summary.get("name"),
