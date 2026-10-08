@@ -142,6 +142,7 @@ def decide(state: State, our_options: list[list[Action]], side: int = 0, opp_opt
     """Best joint action for `side`. our_options/opp_options are per-slot lists of engine Actions."""
     t0 = time.time()
     opp = 1 - side
+    our_options = [_drop_failing(state, side, sl, opts) for sl, opts in enumerate(our_options)]
     if opp_options is None:
         opp_options = [slot_options(state, opp, 0), slot_options(state, opp, 1)]
     if not opp_options[0]:
@@ -192,12 +193,26 @@ def decide(state: State, our_options: list[list[Action]], side: int = 0, opp_opt
     for i in range(n0):
         exp_v = sum(q[j] * M[i][j] for j in range(n1))
         worst = min(M[i][j] for j in top)
-        scores.append((1 - robustness) * exp_v + robustness * worst)
+        # Tiny tie-breaker: between equal plans, prefer the one that does more damage right now
+        tie = 0.01 * sum(immediate_damage_value(state, side, sl, m, J0[i][sl])
+                         for sl in (0, 1) if J0[i][sl][0] == "move"
+                         and (m := state.sides[side].active_mon(sl)) is not None)
+        scores.append((1 - robustness) * exp_v + robustness * worst + tie)
     best = max(range(n0), key=lambda i: scores[i])
     if return_scores:
         ranked = sorted(range(n0), key=lambda i: -scores[i])
         return J0[best], [(J0[i], scores[i]) for i in ranked[:5]], [(J1[j], q[j]) for j in likely[:5]]
     return J0[best]
+
+
+def _drop_failing(state: State, side: int, slot: int, options: list[Action]) -> list[Action]:
+    """Remove moves that are certain to fail (Fake Out after the first turn), unless nothing else is left."""
+    from .engine import FIRST_TURN_ONLY
+    mon = state.sides[side].active_mon(slot)
+    if mon is None or mon.turns_out == 0:
+        return options
+    kept = [o for o in options if not (o[0] == "move" and o[1] in FIRST_TURN_ONLY)]
+    return kept or options
 
 
 def _softmax(vals: list[float], beta: float) -> list[float]:
