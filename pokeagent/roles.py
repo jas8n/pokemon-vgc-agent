@@ -32,7 +32,7 @@ META_PRIOR = {
     "annihilape": 6.5, "maushold": 6.5, "volcarona": 6.5, "ironboulder": 6.5, "ironcrown": 7,
     "gougingfire": 7, "walkingwake": 6.5, "ironbundle": 6.5, "porygon2": 6.5, "dondozo": 6,
     "tatsugiri": 6, "cresselia": 6.5, "hatterene": 6.5, "garchomp": 6, "gyarados": 6, "thundurus": 6.5,
-    "basculegion": 6.5, "woochien": 5, "tinglu": 6.5, "glimmora": 6, "iceroticon": 0,
+    "basculegion": 6.5, "wochien": 5, "tinglu": 6.5, "glimmora": 6,
     "calyrexshadow": 10, "calyrexice": 9.5, "miraidon": 10, "koraidon": 9.5, "zacian": 9.5,
     "zaciancrowned": 10, "kyogre": 9.5, "groudon": 9.5, "terapagos": 9, "lunala": 9, "eternatus": 8,
     "zamazenta": 8, "zamazentacrowned": 8.5, "necrozmaduskmane": 8.5, "rayquaza": 8,
@@ -43,6 +43,7 @@ META_PRIOR = {
     "tyranitar": 6, "kilowattrel": 5.5, "jumpluff": 5.5, "oranguru": 5.5, "mimikyu": 5.5,
     "arcaninehisui": 6.5, "arcanine": 6, "scizor": 5.5, "corviknight": 5, "hydreigon": 5.5,
     "goodra": 5, "goodrahisui": 5, "clefairy": 6.5, "dusclops": 6, "politoed": 6, "ninetalesalola": 6,
+    "sylveon": 6.5, "salamence": 6.5, "sableye": 6, "klefki": 5.5, "milotic": 5.5, "lucario": 5,
 }
 
 

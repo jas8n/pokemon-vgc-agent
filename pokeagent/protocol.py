@@ -36,8 +36,7 @@ class LogFacts:
     last_move: dict = field(default_factory=dict)    # (player, species) -> move id
     moves_used: dict = field(default_factory=dict)   # (player, species) -> set of move ids
     items: dict = field(default_factory=dict)        # (player, species) -> item id ("" = gone)
-    setter: dict = field(default_factory=dict)       # (player, cond) or cond -> species that set it
-    switched_this_stint: dict = field(default_factory=dict)
+    proto: dict = field(default_factory=dict)        # (player, species) -> Protosynthesis/Quark Drive active
 
 
 def _who(token: str) -> tuple[str, str]:
@@ -74,6 +73,7 @@ def read_log(lines) -> LogFacts:
             f.came_in[(player, sp)] = f.turn + 1 if f.turn else 1  # first turn it can act
             f.protect_turns.pop((player, sp), None)
             f.last_move.pop((player, sp), None)
+            f.proto.pop((player, sp), None)  # a Booster Energy boost ends on switching out
         else:
             def species_of(token):
                 player, nick = _who(token)
@@ -89,8 +89,14 @@ def read_log(lines) -> LogFacts:
                 eff = to_id(parts[2].replace("move:", ""))
                 if eff in PROTECT_NAMES:
                     f.protect_turns.setdefault((player, sp), []).append(f.turn)
-            elif tag == "-activate" and len(parts) > 2 and to_id(parts[2].replace("move:", "")) in PROTECT_NAMES:
-                pass  # a protection blocking a hit; already counted at -singleturn
+            elif tag in ("-activate", "-start") and len(parts) > 2 and (
+                    "protosynthesis" in to_id(parts[2]) or "quarkdrive" in to_id(parts[2])):
+                player, sp = species_of(parts[1])
+                f.proto[(player, sp)] = True
+            elif tag == "-end" and len(parts) > 2 and (
+                    "protosynthesis" in to_id(parts[2]) or "quarkdrive" in to_id(parts[2])):
+                player, sp = species_of(parts[1])
+                f.proto[(player, sp)] = False
             elif tag == "-sidestart" and len(parts) > 2:
                 player = parts[1].split(":")[0].strip()[:2]
                 cond = to_id(parts[2].replace("move:", ""))
@@ -176,6 +182,10 @@ def apply_log(state: State, facts: LogFacts, me: str, mon_items: dict | None = N
             mon.protect_streak = streak
             if key in facts.items:
                 mon.item = facts.items[key]
+            if facts.proto.get(key):
+                mon.vol["proto"] = True
+            elif facts.proto.get(key) is False:
+                mon.vol.pop("proto", None)
             last = facts.last_move.get(key)
             if last:
                 mon.vol["lastmove"] = last
