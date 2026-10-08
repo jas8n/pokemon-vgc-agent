@@ -133,10 +133,18 @@ def _solo_state(a: Mon, b: Mon) -> State:
     return State([Side([a], [0, None]), Side([b], [0, None])], Field())
 
 
+FULL_HP_SHIELDS = ("multiscale", "shadowshield")
+
+
 @lru_cache(maxsize=None)
 def best_hit(attacker_key: str, defender_key: str, trick_room: bool = False) -> tuple[float, bool, str]:
-    """(fraction of defender HP from attacker's best attack, is_priority, move)."""
+    """(fraction of defender HP from attacker's best attack, is_priority, move).
+
+    Measured below full HP: Multiscale / Shadow Shield only halve the first hit, which `duel`
+    accounts for separately, rather than every hit."""
     a, d = Mon.fresh(_BUILDS[attacker_key]), Mon.fresh(_BUILDS[defender_key])
+    if d.ability in FULL_HP_SHIELDS:
+        d.hp = d.maxhp - 1
     st = _solo_state(a, d)
     best, prio, best_move = 0.0, False, ""
     for m in a.build.moves:
@@ -159,8 +167,8 @@ def duel(a_key: str, b_key: str) -> float:
     """1v1 score of a vs b in [-1, 1]: who knocks the other out first, counting speed."""
     fa, pa, _ = best_hit(a_key, b_key)
     fb, pb, _ = best_hit(b_key, a_key)
-    ta = math.ceil(1 / fa) if fa > 0.01 else 99
-    tb = math.ceil(1 / fb) if fb > 0.01 else 99
+    ta = _hits_to_ko(fa, _BUILDS[b_key].ability in FULL_HP_SHIELDS)
+    tb = _hits_to_ko(fb, _BUILDS[a_key].ability in FULL_HP_SHIELDS)
     sa, sb = _BUILDS[a_key].stats["spe"], _BUILDS[b_key].stats["spe"]
     a_first = sa > sb
     if ta == tb:
@@ -169,6 +177,15 @@ def duel(a_key: str, b_key: str) -> float:
         return 0.6 if a_first else -0.6
     margin = tb - ta  # positive: a needs fewer hits
     return max(-1.0, min(1.0, 0.35 * margin + (0.15 if a_first else -0.15)))
+
+
+def _hits_to_ko(frac: float, first_hit_halved: bool) -> int:
+    if frac <= 0.01:
+        return 99
+    if not first_hit_halved:
+        return math.ceil(1 / frac)
+    rest = 1 - frac / 2
+    return 1 + max(0, math.ceil(rest / frac - 1e-9))
 
 
 def pressure(a_key: str, b_key: str) -> float:

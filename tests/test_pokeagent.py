@@ -153,3 +153,12 @@ def test_make_legal_fixes_illegal_slots():
     out = make_legal({"type": "doubles_turn", "slot_0": {"type": "move", "move_id": "protect"},
                       "slot_1": {"type": "move", "move_id": "flareblitz", "target": 0}}, tmpl2)
     assert out["slot_0"] == {"type": "move", "move_id": "protect"} and out["slot_1"]["target"] == 1
+
+
+def test_no_taunt_on_our_own_partner():
+    from pokeagent.platform import prune_ally_hits
+    slot0 = [("move", "taunt", -2), ("move", "taunt", 1), ("move", "helpinghand", -2), ("move", "flareblitz", -2),
+             ("move", "flareblitz", 2)]
+    kept = prune_ally_hits([slot0, [("pass",)]])[0]
+    assert ("move", "taunt", -2) not in kept and ("move", "flareblitz", -2) not in kept
+    assert ("move", "helpinghand", -2) in kept and ("move", "taunt", 1) in kept

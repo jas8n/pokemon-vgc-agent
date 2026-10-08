@@ -316,15 +316,20 @@ def template_options(view: BoardView, template: dict) -> tuple[list[list[Action]
     return per_slot, back
 
 
+# Moves worth aiming at our own partner; anything else aimed at it (Taunt, Spore, attacks) is a waste
+ALLY_HELP = {"helpinghand", "pollenpuff", "coaching", "decorate", "afteryou", "allyswitch", "healpulse",
+             "floralhealing", "aromaticmist", "acupressure", "instruct", "lifedew", "lunarblessing", "junglehealing"}
+
+
 def prune_ally_hits(per_slot: list[list[Action]]) -> list[list[Action]]:
-    """Drop attacks aimed at our own Pokémon unless nothing else is left (the search can still
-    choose healing/support moves on the ally, which are status moves or Pollen Puff)."""
-    from .engine import move_data
+    """Drop moves aimed at our own partner unless they help it (or nothing else is left).
+    Seen live: Gyarados used Taunt on its own partner's slot."""
     out = []
     for n, acts in enumerate(per_slot):
         keep = []
         for a in acts:
-            if a[0] == "move" and a[2] < 0 and move_data(a[1])["category"] != "Status" and a[1] != "pollenpuff":
+            at_ally = a[0] == "move" and a[2] < 0 and a[2] != -(n + 1)
+            if at_ally and a[1] not in ALLY_HELP:
                 continue
             keep.append(a)
         out.append(keep or acts)
