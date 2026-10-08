@@ -119,12 +119,18 @@ def _build(key: str) -> Build:
     return _BUILDS[key]
 
 
+# Weight of the meta strength table against our computed 1v1 matchups. Raised from 0.35: live losses came
+# from passing on proven picks (Incineroar, Rillaboom, Kingambit) for matchup-driven ones, and over 160
+# arena matches 1.0 beat 0.35 by 91-69 (2.0 went too far: 78-82).
+PRIOR_WEIGHT = 1.0
+
+
 def score_card(key: str, mine: list[str], theirs: list[str], pool: list[str], picks_left_mine: int) -> float:
-    strength = 0.35 * prior(_build(key)) + 3.0 * general_strength(key, pool)
+    strength = PRIOR_WEIGHT * prior(_build(key)) + 3.0 * general_strength(key, pool)
     fit = synergy(key, mine)
     vs_them = 2.0 * (sum(duel(key, t) for t in theirs) / len(theirs)) if theirs else 0.0
     # Denial: how much the opponent would want this card
-    their_want = 0.35 * prior(_build(key)) + 3.0 * general_strength(key, pool) + synergy(key, theirs)
+    their_want = PRIOR_WEIGHT * prior(_build(key)) + 3.0 * general_strength(key, pool) + synergy(key, theirs)
     their_want += 2.0 * (sum(duel(key, m) for m in mine) / len(mine)) if mine else 0.0
     denial_w = 0.35 if picks_left_mine > 1 else 0.15
     # Late picks matter less (we bring 4 of 6), so lean on fit and coverage
