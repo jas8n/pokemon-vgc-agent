@@ -178,17 +178,26 @@ class PokemonAgent:
         self.my_ids = [r.get("card_id") for r in my_entries]
         self.opp_ids = [r.get("card_id") for r in their_entries]
         self._save()
-        legal_ids = {a.action_id.split(":", 1)[1] for a in state.legal_actions if a.action_id.startswith("draft_pick:")}
-        offer = [c for c in available if c["card_id"] in legal_ids] or available
+        self._dump(obs, state, f"draft_p{obs.get('pick_number')}")
+        # Only ever pick from the server's legal list (Item Clause clashes are left out of it), and send
+        # back the server's own legal action. Seen live: a pick outside that list was rejected.
+        legal = {a.action_id.split(":", 1)[1]: a for a in state.legal_actions if a.action_id.startswith("draft_pick:")}
+        offer = [c for c in available if c["card_id"] in legal]
+        if not offer:
+            first = state.legal_actions[0]
+            _log(f"draft pick {obs.get('pick_number')}: no readable cards on offer, taking {first.action_id}")
+            return WithReasoning(first, "Taking the best card available.")
         mine = [c for c in (self._card(r.get("card_id"), r) for r in my_entries) if c]
         theirs = [c for c in (self._card(r.get("card_id"), r) for r in their_entries) if c]
         card_id, reason = drafting.choose_pick(offer, mine, theirs, available + mine + theirs,
                                                picks_left_mine=6 - len(mine))
+        if card_id not in legal:
+            card_id = offer[0]["card_id"]
         if card_id not in self.my_ids:
             self.my_ids.append(card_id)
             self._save()
         _log(f"draft pick {obs.get('pick_number')}: {card_id} — {reason}")
-        return WithReasoning({"type": "draft_pick", "card_id": card_id}, reason)
+        return WithReasoning(legal[card_id], reason)
 
     def _card(self, card_id: str | None, roster_entry: dict | None = None) -> dict | None:
         if card_id and card_id in self.cards:

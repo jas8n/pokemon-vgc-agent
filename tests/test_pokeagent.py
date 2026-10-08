@@ -162,3 +162,23 @@ def test_no_taunt_on_our_own_partner():
     kept = prune_ally_hits([slot0, [("pass",)]])[0]
     assert ("move", "taunt", -2) not in kept and ("move", "flareblitz", -2) not in kept
     assert ("move", "helpinghand", -2) in kept and ("move", "taunt", 1) in kept
+
+
+def test_draft_only_picks_from_the_legal_list():
+    import agent.agent as am
+    from altruagent import DecisionContext, GameState, LegalAction, WithReasoning
+    am.LOG_DIR = am.LOG_DIR.parent / "logs_test"
+    cards = [CARDS["Incineroar"], CARDS["Flutter Mane"], CARDS["Amoonguss"]]
+    legal = [c for c in cards if c["species"] != "Incineroar"]  # Incineroar blocked (e.g. Item Clause)
+    obs = {"phase": "draft", "pick_number": 3, "available_cards": cards, "rosters": {}}
+    st = GameState.from_mcp_state({"session_id": "s", "game_type": "pokemon_vgc_doubles_draft", "phase": "draft",
+                                   "observation": obs, "is_current_actor": True, "legal_actions": {"actions": [
+                                       {"action_id": f"draft_pick:{c['card_id']}", "label": c["species"],
+                                        "input": {"action": {"type": "draft_pick", "card_id": c["card_id"]}}}
+                                       for c in legal], "state_version": 2}})
+    out = am.PokemonAgent().choose_action(st, DecisionContext(session_id="s", tournament_id=None,
+                                                              game_type="pokemon_vgc_doubles_draft", agent_id="me"))
+    action = out.action if isinstance(out, WithReasoning) else out
+    assert isinstance(action, LegalAction) and action.action_id in {f"draft_pick:{c['card_id']}" for c in legal}
+    import shutil
+    shutil.rmtree(am.LOG_DIR, ignore_errors=True)

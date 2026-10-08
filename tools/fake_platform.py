@@ -175,7 +175,8 @@ def run_match(rng: random.Random, verbose: bool = False, me_first: bool = True) 
             acts = [{"action_id": f"draft_pick:{c['card_id']}", "label": c["species"],
                      "input": {"action": {"type": "draft_pick", "card_id": c["card_id"]}}} for c in offer]
             pick = unwrap(agent.choose_action(gs("draft", obs, acts, n), CTX))
-            pick_id = pick["card_id"]
+            pick_id = pick["card_id"] if isinstance(pick, dict) else pick.action_id.split(":", 1)[1]
+            assert pick_id in {c["card_id"] for c in offer}, f"illegal draft pick {pick_id}"
         else:
             pick_id = naive.draft(offer, rosters[OPP], rosters[ME], pool, rng)
         card = next(c for c in offer if c["card_id"] == pick_id)
