@@ -22,7 +22,7 @@ Requires Python 3.11+. The agent is `agent/agent.py` (`create_agent()`), the sta
 |---|---|---|
 | Draft (15 s per pick) | `pokeagent/draft.py`, `pokeagent/roles.py` | Scores each offered card on general strength (a fixed prior table plus 1v1 damage matchups against the pool), fit with our roster (speed control, Fake Out/Intimidate, Trick Room and weather combos, shared weaknesses), matchups against the opponent's picks, and denial value. |
 | Team Preview | `pokeagent/preview.py` | Ranks the 15 possible fours against the opponent's six, plays short simulated games against their likely fours, then picks the leads by searching turn 1. |
-| Battle turns | `pokeagent/search.py`, `pokeagent/engine.py`, `pokeagent/calc.py` | Builds the board from the observation (`pokeagent/platform.py`), simulates every pairing of our options with the opponent's, models the opponent as preferring their own best replies, and plays the option that does best in expectation with a worst-case guard. |
+| Battle turns | `pokeagent/search.py`, `pokeagent/engine.py`, `pokeagent/calc.py` | Builds the board from the observation (`pokeagent/platform.py`), simulates every pairing of our options with the opponent's, models the opponent as preferring their own best replies, searches the following turn for the most promising plans, and plays the option that does best in expectation with a worst-case guard. |
 
 Components that materially affect gameplay:
 

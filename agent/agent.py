@@ -271,7 +271,7 @@ class PokemonAgent:
             reason = "Bringing in " + " and ".join(
                 st.sides[0].mons[a[1]].name for a in choice if a[0] == "switch") + "."
         else:
-            choice, ranked, likely = decide(st, per_slot, side=0, budget_s=TURN_BUDGET_S, return_scores=True)
+            choice, ranked, likely = decide(st, per_slot, side=0, budget_s=TURN_BUDGET_S, return_scores=True, depth=2)
             reason = self._explain(st, choice)
             self._record_protects(st, choice)
             _log(f"turn {st.turn}: {choice} | expect opp {likely[0][0] if likely else '?'}")

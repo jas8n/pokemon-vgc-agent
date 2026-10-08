@@ -52,7 +52,12 @@ def policy_search(state, side, rng):
     return list(decide(state, ours, side=side, budget_s=5))
 
 
-POLICIES = {"random": policy_random, "greedy": policy_greedy, "search": policy_search}
+def policy_search2(state, side, rng):
+    ours = [slot_options(state, side, 0), slot_options(state, side, 1)]
+    return list(decide(state, ours, side=side, budget_s=8, depth=2))
+
+
+POLICIES = {"random": policy_random, "greedy": policy_greedy, "search": policy_search, "search2": policy_search2}
 
 
 def make_side(cards: list[dict], leads: tuple[int, int] = (0, 1)) -> Side:

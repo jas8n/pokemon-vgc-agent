@@ -136,9 +136,38 @@ def immediate_damage_value(state: State, side: int, slot: int, mon: Mon, opt: Ac
     return total
 
 
+def _second_ply(state: State, side: int, J0, J1, q, scores, t0: float, budget_s: float,
+                top_plans: int = 4, top_replies: int = 3) -> list[float]:
+    """Re-score the best few plans by searching the turn after them (with fainted slots refilled),
+    so moves that pay off a turn later (Tailwind, Trick Room, boosts, good switches) get credit."""
+    from .sim import replace_best
+    plans = sorted(range(len(J0)), key=lambda i: -scores[i])[:top_plans]
+    replies = sorted(range(len(J1)), key=lambda j: -q[j])[:top_replies]
+    wsum = sum(q[j] for j in replies) or 1.0
+    deep = {}
+    for i in plans:
+        total = 0.0
+        for j in replies:
+            if time.time() - t0 > budget_s * 0.9:
+                return scores
+            nxt = resolve(state, _actions_for(side, J0[i], J1[j]), replace=replace_best)
+            if nxt.winner() is not None:
+                v = evaluate(nxt, side)
+            else:
+                ours = [slot_options(nxt, side, 0), slot_options(nxt, side, 1)]
+                _, ranked, _ = decide(nxt, ours, side=side, budget_s=budget_s * 0.05, keep=3,
+                                      return_scores=True, depth=1)
+                v = ranked[0][1]
+            total += q[j] / wsum * v
+        deep[i] = total
+    # Plans not searched deeper keep their one-turn score but can't beat a deeper-searched plan by default
+    best_deep = max(deep.values())
+    return [deep[i] if i in deep else min(scores[i], best_deep - 1e-6) for i in range(len(J0))]
+
+
 def decide(state: State, our_options: list[list[Action]], side: int = 0, opp_options: list[list[Action]] | None = None,
            budget_s: float = 8.0, keep: int = 5, beta: float = 0.06, robustness: float = 0.3,
-           return_scores: bool = False):
+           return_scores: bool = False, depth: int = 1):
     """Best joint action for `side`. our_options/opp_options are per-slot lists of engine Actions."""
     t0 = time.time()
     opp = 1 - side
@@ -198,6 +227,8 @@ def decide(state: State, our_options: list[list[Action]], side: int = 0, opp_opt
                          for sl in (0, 1) if J0[i][sl][0] == "move"
                          and (m := state.sides[side].active_mon(sl)) is not None)
         scores.append((1 - robustness) * exp_v + robustness * worst + tie)
+    if depth >= 2 and time.time() - t0 < budget_s * 0.5:
+        scores = _second_ply(state, side, J0, J1, q, scores, t0, budget_s)
     best = max(range(n0), key=lambda i: scores[i])
     if return_scores:
         ranked = sorted(range(n0), key=lambda i: -scores[i])
