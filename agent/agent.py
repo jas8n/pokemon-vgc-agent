@@ -34,7 +34,7 @@ from pokeagent.dex import to_id
 from pokeagent.guess import guess_card, with_revealed
 from pokeagent.engine import PROTECT_MOVES, Resolver, move_data, slot_options
 from pokeagent.model import Build
-from pokeagent.platform import parse_board, prune_ally_hits, template_options, to_platform
+from pokeagent.platform import make_legal, parse_board, prune_ally_hits, template_options, to_platform
 from pokeagent.protocol import apply_log, my_player, read_log
 from pokeagent.search import decide
 
@@ -252,6 +252,9 @@ class PokemonAgent:
         if template.get("type") != "doubles_turn":
             return smoke_agent.choose_action(state, None)
         self._dump(obs, state, f"battle_t{obs.get('turn')}")
+        if not obs.get("team") and not obs.get("active_pokemon"):
+            # A placeholder board arrived with a real request: decide from the server's options alone
+            return WithReasoning(make_legal({"type": "doubles_turn"}, template), "Making the required switch.")
         seen = {to_id(c["species"]): Build.from_card(c) for c in self.cards.values() if c.get("species")}
         mine_sp = {to_id(self.cards[c]["species"]) for c in self.my_ids if c in self.cards}
         my_builds = {k: b for k, b in seen.items() if k in mine_sp} or seen
@@ -286,7 +289,7 @@ class PokemonAgent:
             reason = self._explain(st, choice)
             self._record_protects(st, choice)
             _log(f"turn {st.turn}: {choice} | expect opp {likely[0][0] if likely else '?'}")
-        return WithReasoning(to_platform(choice, back), reason)
+        return WithReasoning(make_legal(to_platform(choice, back), template), reason)
 
     def _track_turns(self, st) -> None:
         """Fake Out only works on a Pokémon's first turn out; remember when each one came in."""

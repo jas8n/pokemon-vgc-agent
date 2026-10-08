@@ -131,3 +131,25 @@ def test_unseen_opponent_card_gets_a_real_moveset():
     from pokeagent.guess import guess_card, with_revealed
     card = with_revealed(guess_card("incineroar"), ["Knock Off"])
     assert card["moves"][0] == "knockoff" and len(card["moves"]) == 4
+
+
+def test_make_legal_fixes_illegal_slots():
+    from pokeagent.platform import make_legal
+    tmpl = {"slots": [
+        {"slot": 0, "options": [{"type": "pass"}]},
+        {"slot": 1, "force_switch": True, "options": [{"type": "switch", "species": "gyarados"}]}]}
+    # the live failure: pass sent for a slot that must switch
+    out = make_legal({"type": "doubles_turn", "slot_0": {"type": "pass"}, "slot_1": {"type": "pass"}}, tmpl)
+    assert out["slot_1"] == {"type": "switch", "species": "gyarados"} and out["slot_0"] == {"type": "pass"}
+    tmpl2 = {"slots": [
+        {"slot": 0, "options": [{"type": "move", "move_id": "protect", "targets": []},
+                                {"type": "switch", "species": "amoonguss"}]},
+        {"slot": 1, "options": [{"type": "move", "move_id": "flareblitz", "targets": [-1, 1, 2]},
+                                {"type": "switch", "species": "amoonguss"}]}]}
+    # a target not on offer, and both slots switching to the same Pokémon
+    out = make_legal({"type": "doubles_turn", "slot_0": {"type": "switch", "species": "amoonguss"},
+                      "slot_1": {"type": "switch", "species": "amoonguss"}}, tmpl2)
+    assert out["slot_0"]["type"] == "switch" and out["slot_1"] == {"type": "move", "move_id": "flareblitz", "target": 1}
+    out = make_legal({"type": "doubles_turn", "slot_0": {"type": "move", "move_id": "protect"},
+                      "slot_1": {"type": "move", "move_id": "flareblitz", "target": 0}}, tmpl2)
+    assert out["slot_0"] == {"type": "move", "move_id": "protect"} and out["slot_1"]["target"] == 1

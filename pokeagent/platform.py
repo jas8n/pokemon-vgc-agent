@@ -336,3 +336,61 @@ def to_platform(choice: tuple[Action, Action], back: dict) -> dict:
     for n in (0, 1):
         out[f"slot_{n}"] = back.get((n, choice[n]), {"type": "pass"})
     return out
+
+
+def make_legal(action: dict, template: dict) -> dict:
+    """Last check before sending: every slot uses an option the server offered.
+
+    A slot that would pass while it has a real move or switch, or that names a move/target/switch
+    not on offer, gets the first offered alternative instead; the two slots never switch to the
+    same Pokémon. This guards against any mismatch between our board and the server's options
+    (seen live: a placeholder board arriving with a forced-switch request)."""
+    slots = {s.get("slot", i): s for i, s in enumerate(template.get("slots") or [])}
+    out = dict(action)
+    taken: set[str] = set()
+    for n in (0, 1):
+        slot = slots.get(n)
+        if slot is None:
+            continue
+        options = slot.get("options") or []
+        chosen = out.get(f"slot_{n}") or {"type": "pass"}
+        if not _offered(chosen, options, taken) or (chosen["type"] == "switch" and to_id(chosen.get("species")) in taken):
+            chosen = _first_legal(options, taken)
+        if chosen["type"] == "switch":
+            taken.add(to_id(chosen.get("species")))
+        out[f"slot_{n}"] = chosen
+    return out
+
+
+def _offered(chosen: dict, options: list[dict], taken: set[str] | None = None) -> bool:
+    kind = chosen.get("type")
+    taken = taken or set()
+    # Pass is legal when offered and nothing else is usable: no move, and no switch the other slot
+    # hasn't already claimed (both slots fainted with one reserve: one switches, the other passes)
+    usable = [o for o in options if o.get("type") == "move"
+              or (o.get("type") == "switch" and to_id(o.get("species")) not in taken)]
+    if kind == "pass":
+        return any(o.get("type") == "pass" for o in options) and not usable
+    for o in options:
+        if o.get("type") != kind:
+            continue
+        if kind == "switch" and to_id(o.get("species")) == to_id(chosen.get("species")):
+            return True
+        if kind == "move" and to_id(o.get("move_id")) == to_id(chosen.get("move_id")):
+            targets = [t for t in (o.get("targets") or []) if isinstance(t, int) and not isinstance(t, bool)]
+            return (not targets and chosen.get("target") in (None, 0)) or chosen.get("target") in targets
+    return False
+
+
+def _first_legal(options: list[dict], taken: set[str]) -> dict:
+    for o in options:
+        if o.get("type") == "move":
+            targets = [t for t in (o.get("targets") or []) if isinstance(t, int) and not isinstance(t, bool)]
+            choice = {"type": "move", "move_id": o.get("move_id")}
+            if targets:
+                choice["target"] = next((t for t in targets if t > 0), targets[0])
+            return choice
+    for o in options:
+        if o.get("type") == "switch" and to_id(o.get("species")) not in taken:
+            return {"type": "switch", "species": o.get("species")}
+    return {"type": "pass"}
