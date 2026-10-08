@@ -103,3 +103,22 @@ def test_parse_field_variants():
     assert parse_field({"weather": "Weather.RAINDANCE"}, 1).weather == "rain"
     assert parse_field({"fields": {"ELECTRIC_TERRAIN": 1}}, 1).terrain == "electric"
     assert parse_field({}, 1).weather == ""
+
+
+def test_battle_log_facts():
+    from pokeagent.protocol import apply_log, read_log
+    log = ["|start", "|switch|p1a: Sneasler|Sneasler, L50, M|100/100", "|switch|p2a: Dragonite|Dragonite, L50, M|198/198",
+           "|switch|p2b: Gholdengo|Gholdengo, L50|162/162", "|-item|p2b: Gholdengo|Air Balloon", "|turn|1",
+           "|move|p2a: Dragonite|Tailwind|p2a: Dragonite", "|-sidestart|p2: x|move: Tailwind",
+           "|move|p1a: Sneasler|Protect|p1a: Sneasler", "|-singleturn|p1a: Sneasler|Protect",
+           "|-fieldstart|move: Trick Room|[of] p1b: Cresselia", "|turn|2",
+           "|switch|p2b: Iron Hands|Iron Hands, L50|200/200", "|turn|3"]
+    f = read_log(log)
+    st = State([Side([Mon.fresh(build("Dragonite")), Mon.fresh(build("Iron Hands"))], [0, 1]),
+                Side([Mon.fresh(build("Sneasler"))], [0, None])], Field(), turn=3)
+    apply_log(st, f, "p2")
+    assert st.sides[0].tailwind == 2          # set on turn 1: active turns 1-4, two left at turn 3
+    assert st.field.trickroom == 3
+    assert st.sides[0].mons[1].turns_out == 0  # Iron Hands came in during turn 2: Fake Out works on turn 3
+    assert st.sides[0].mons[0].turns_out == 2
+    assert st.sides[1].mons[0].protect_streak == 0  # protected on turn 1, not turn 2

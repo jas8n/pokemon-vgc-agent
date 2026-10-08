@@ -99,7 +99,7 @@ def summary_build(summary: dict) -> Build:
     """Fallback when we don't have the card: build from what the observation shows."""
     card = {
         "card_id": summary.get("species"),
-        "species": summary.get("name") or summary.get("species"),
+        "species": summary.get("species") or summary.get("name"),
         "item": summary.get("item") or "",
         "ability": summary.get("ability") or "",
         "nature": "Serious",

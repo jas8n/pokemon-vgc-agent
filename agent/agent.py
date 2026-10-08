@@ -34,12 +34,14 @@ from pokeagent.dex import to_id
 from pokeagent.engine import PROTECT_MOVES, Resolver, move_data, slot_options
 from pokeagent.model import Build
 from pokeagent.platform import parse_board, prune_ally_hits, template_options, to_platform
+from pokeagent.protocol import apply_log, my_player, read_log
 from pokeagent.search import decide
 
 LOG_DIR = Path(__file__).resolve().parents[1] / "logs"
 CATALOG = LOG_DIR / "cards_seen.jsonl"
-PREVIEW_BUDGET_S = 45.0
-TURN_BUDGET_S = 20.0
+# Showdown's own timer: 90 s per turn and 420 s for the whole battle, so stay well inside it
+PREVIEW_BUDGET_S = 15.0
+TURN_BUDGET_S = 8.0
 DEFAULT_EVS = {s: 84 for s in ("hp", "atk", "def", "spa", "spd", "spe")}
 
 
@@ -177,6 +179,9 @@ class PokemonAgent:
         theirs = [c for c in (self._card(r.get("card_id"), r) for r in their_entries) if c]
         card_id, reason = drafting.choose_pick(offer, mine, theirs, available + mine + theirs,
                                                picks_left_mine=6 - len(mine))
+        if card_id not in self.my_ids:
+            self.my_ids.append(card_id)
+            self._save()
         _log(f"draft pick {obs.get('pick_number')}: {card_id} — {reason}")
         return WithReasoning({"type": "draft_pick", "card_id": card_id}, reason)
 
@@ -196,8 +201,8 @@ class PokemonAgent:
     # ---------------- team preview ----------------
     def _builds_from_preview(self, roster: list[dict], ids: list[str]) -> list[Build]:
         """Builds for a preview roster, preferring the drafted cards, then what the preview shows."""
-        by_species = {}
-        for cid in ids:
+        by_species = {to_id(c["species"]): c for c in self.cards.values()}  # every card seen this match
+        for cid in ids:  # cards known to be on this roster win any species clash
             c = self.cards.get(cid)
             if c:
                 by_species[to_id(c["species"])] = c
@@ -208,7 +213,7 @@ class PokemonAgent:
                 (c for k, c in by_species.items() if k.startswith(key) or key.startswith(k)), None)
             if card is None:
                 moves = entry.get("moves") or []
-                card = {"card_id": key, "species": entry.get("name") or entry.get("species"),
+                card = {"card_id": key, "species": entry.get("species") or entry.get("name"),
                         "item": entry.get("item") or "", "ability": entry.get("ability") or "",
                         "nature": entry.get("nature") or "Serious", "level": entry.get("level") or 50,
                         "evs": entry.get("evs") or DEFAULT_EVS,
@@ -243,16 +248,21 @@ class PokemonAgent:
         template = state.legal_actions[0].input.get("action") or {}
         if template.get("type") != "doubles_turn":
             return smoke_agent.choose_action(state, None)
-        if not getattr(self, "_dumped_battle", False):
-            self._dump(obs, state, "battle")  # one sample board per match, for checking the parser
-            self._dumped_battle = True
-        my_builds = {to_id(self.cards[c]["species"]): Build.from_card(self.cards[c]) for c in self.my_ids if c in self.cards}
-        opp_builds = {to_id(self.cards[c]["species"]): Build.from_card(self.cards[c]) for c in self.opp_ids if c in self.cards}
+        self._dump(obs, state, f"battle_t{obs.get('turn')}")
+        seen = {to_id(c["species"]): Build.from_card(c) for c in self.cards.values() if c.get("species")}
+        mine_sp = {to_id(self.cards[c]["species"]) for c in self.my_ids if c in self.cards}
+        my_builds = {k: b for k, b in seen.items() if k in mine_sp} or seen
+        opp_builds = {k: b for k, b in seen.items() if k not in mine_sp}
         view = parse_board(obs, my_builds, opp_builds, template=template)
         st = view.state
-        self._track_turns(st)
+        log = obs.get("protocol_log")
+        if log:
+            apply_log(st, read_log(log), my_player(obs))
+        else:
+            self._track_turns(st)
 
-        self._apply_protect_streaks(st)
+        if not log:
+            self._apply_protect_streaks(st)
         per_slot, back = template_options(view, template)
         per_slot = prune_ally_hits(per_slot)
         slots = sorted(template.get("slots") or [], key=lambda s: s.get("slot", 0))
