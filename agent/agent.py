@@ -9,10 +9,10 @@ Each phase hands off to pokeagent/:
   moving        pokeagent.search.decide           (every pairing of our options vs theirs)
 
 Every match starts with empty memory (Official Rules section 5). Within a match, each card we see
-is kept in logs/match_<id>.json, because roster entries only carry card ids and the full sets
+is kept in logs/match_<id>_<seat>.json, because roster entries only carry card ids and the full sets
 appear only while they're on offer; that file is only for resuming the same match after a crash.
 logs/cards_seen.jsonl is written for offline analysis and is never read by the agent.
-logs/decisions_<id>.jsonl records every action sent, with timestamps (section 9 records).
+logs/decisions_<id>_<seat>.jsonl records every action sent, with timestamps (section 9 records).
 Any exception falls back to a legal default so a bug never costs a turn. Other games (Werewolf)
 get the first legal action, like the starter placeholder.
 """
@@ -64,7 +64,7 @@ class PokemonAgent:
 
     # ---------------- persistence ----------------
     def _match_file(self) -> Path:
-        return LOG_DIR / f"match_{self.session}.json"
+        return LOG_DIR / f"match_{self.session}_{self.me[:8]}.json"  # one file per seat
 
     def _save(self) -> None:
         try:
@@ -113,8 +113,8 @@ class PokemonAgent:
     def choose_action(self, state: GameState, context: DecisionContext):
         if not (context.game_type or state.game_name or "").startswith("pokemon"):
             return state.legal_actions[0]
-        self._restore(state.session_id or context.session_id)
         self.me = context.agent_id or self.me
+        self._restore(state.session_id or context.session_id)
         obs = state.raw.get("observation") if isinstance(state.raw, dict) else None
         if not isinstance(obs, dict):
             try:
@@ -147,7 +147,7 @@ class PokemonAgent:
             reason = result.reasoning_summary if isinstance(result, WithReasoning) else None
             if hasattr(action, "action_id"):
                 action = {"action_id": action.action_id}
-            with (LOG_DIR / f"decisions_{self.session}.jsonl").open("a") as f:
+            with (LOG_DIR / f"decisions_{self.session}_{self.me[:8]}.jsonl").open("a") as f:
                 f.write(json.dumps({"time": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "phase": phase,
                                     "state_version": state.state_version, "seconds": round(seconds, 2),
                                     "action": action, "reason": reason}, default=str) + "\n")
@@ -157,7 +157,7 @@ class PokemonAgent:
     def _dump(self, obs: dict, state: GameState, tag: str) -> None:
         try:
             LOG_DIR.mkdir(exist_ok=True)
-            path = LOG_DIR / f"obs_{self.session}_{tag}_{int(time.time() * 1000)}.json"
+            path = LOG_DIR / f"obs_{self.session}_{self.me[:8]}_{tag}_{int(time.time() * 1000)}.json"
             path.write_text(json.dumps({"observation": obs, "legal_actions": [a.raw for a in state.legal_actions]},
                                        default=str, indent=1))
         except Exception:

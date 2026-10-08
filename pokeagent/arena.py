@@ -75,8 +75,18 @@ def run_draft(pool: list[dict], a: AgentSpec, b: AgentSpec, a_first: bool, rng: 
     return rosters["A"], rosters["B"]
 
 
-def match(a: AgentSpec, b: AgentSpec, rng: random.Random, a_first: bool) -> int:
-    pool = rng.sample(SAMPLE_CARDS, 18)
+CARD_SETS = {"sample": SAMPLE_CARDS}
+
+
+def _real_cards() -> list[dict]:
+    """The real cards seen in live matches (tools/real_cards.json): offline testing only."""
+    import json
+    from pathlib import Path
+    return json.loads((Path(__file__).resolve().parents[1] / "tools" / "real_cards.json").read_text())
+
+
+def match(a: AgentSpec, b: AgentSpec, rng: random.Random, a_first: bool, cards: list[dict] = SAMPLE_CARDS) -> int:
+    pool = rng.sample(cards, 18)
     ra, rb = run_draft(pool, a, b, a_first, rng)
     ba, bb = [Build.from_card(c) for c in ra], [Build.from_card(c) for c in rb]
     bring_a, leads_a = a.preview(ba, bb, rng)
@@ -93,13 +103,15 @@ def main() -> None:
     ap.add_argument("--a", default="ours")
     ap.add_argument("--b", default="naive")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--cards", choices=["sample", "real"], default="real")
     args = ap.parse_args()
+    cards = _real_cards() if args.cards == "real" else SAMPLE_CARDS
     rng = random.Random(args.seed)
     a, b = AGENTS[args.a], AGENTS[args.b]
     wins = [0, 0, 0]
     t0 = time.time()
     for m in range(args.matches):
-        w = match(a, b, rng, a_first=(m % 2 == 0))
+        w = match(a, b, rng, a_first=(m % 2 == 0), cards=cards)
         wins[w if w >= 0 else 2] += 1
         print(f"match {m + 1}: {['A', 'B', 'draw'][w if w >= 0 else 2]}  "
               f"[{wins[0]}-{wins[1]}-{wins[2]}] ({time.time() - t0:.0f}s)", flush=True)

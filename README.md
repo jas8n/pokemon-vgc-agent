@@ -34,10 +34,10 @@ Components that materially affect gameplay:
 
 **Information use.** The agent reads only its own seat's observations through the starter's MCP
 connection. Each match starts with empty memory: within a match it keeps the cards it has seen
-in `logs/match_<session>.json` (used only to resume that same match after a crash). It never reads
+in `logs/match_<session>_<seat>.json` (used only to resume that same match after a crash). It never reads
 data from earlier matches. `logs/cards_seen.jsonl` is written for offline analysis only.
 
-**Records.** `logs/decisions_<session>.jsonl` logs every action sent, with its timestamp, phase,
+**Records.** `logs/decisions_<session>_<seat>.jsonl` logs every action sent, with its timestamp, phase,
 state version and public reason. Run output can also be kept with
 `python -m agent --tournament 2>&1 | tee logs/run_$(date +%F).log`.
 

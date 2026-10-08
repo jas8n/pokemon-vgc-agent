@@ -25,7 +25,7 @@ from pokeagent.protocol import apply_log, my_player, read_log
 def boards():
     out = defaultdict(dict)
     for f in glob.glob("logs/obs_*_battle_t*.json"):
-        m = re.match(r"logs/obs_(.+?)_battle_t(\d+)_", f)
+        m = re.match(r"logs/obs_(.+?)_battle_t(\d+)_", f)  # new files: obs_<session>_<seat>_battle_...
         if m and not m.group(1).startswith("fake"):
             out[m.group(1)][int(m.group(2))] = f
     return out
