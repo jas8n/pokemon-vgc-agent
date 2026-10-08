@@ -37,6 +37,7 @@ class LogFacts:
     moves_used: dict = field(default_factory=dict)   # (player, species) -> set of move ids
     items: dict = field(default_factory=dict)        # (player, species) -> item id ("" = gone)
     proto: dict = field(default_factory=dict)        # (player, species) -> Protosynthesis/Quark Drive active
+    slept: dict = field(default_factory=dict)        # (player, species) -> turns it has stayed asleep so far
 
 
 def _who(token: str) -> tuple[str, str]:
@@ -120,6 +121,15 @@ def read_log(lines) -> LogFacts:
                     f.weather, f.weather_start = "", 0
                 elif not upkeep:
                     f.weather, f.weather_start = WEATHERS.get(w, ""), f.turn
+            elif tag == "-status" and len(parts) > 2 and to_id(parts[2]) == "slp":
+                player, sp = species_of(parts[1])
+                f.slept[(player, sp)] = 0
+            elif tag == "cant" and len(parts) > 2 and to_id(parts[2]) == "slp":
+                player, sp = species_of(parts[1])
+                f.slept[(player, sp)] = f.slept.get((player, sp), 0) + 1
+            elif tag == "-curestatus" and len(parts) > 2 and to_id(parts[2]) == "slp":
+                player, sp = species_of(parts[1])
+                f.slept.pop((player, sp), None)
             elif tag == "-item" and len(parts) > 2:
                 player, sp = species_of(parts[1])
                 f.items[(player, sp)] = to_id(parts[2])
@@ -180,6 +190,10 @@ def apply_log(state: State, facts: LogFacts, me: str, mon_items: dict | None = N
                 streak += 1
                 t -= 1
             mon.protect_streak = streak
+            if mon.status == "slp":
+                # Sleep lasts 1-3 turns in Gen 9 and the board gives no counter: two more turns if it just
+                # fell asleep, otherwise one (each turn spent asleep uses one up)
+                mon.status_turns = max(1, 2 - facts.slept.get(key, 0))
             if key in facts.items:
                 mon.item = facts.items[key]
             if facts.proto.get(key):

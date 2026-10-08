@@ -200,3 +200,19 @@ def test_left_behind_pokemon_are_not_in_the_battle():
                       {"slot": 1, "active": {"species": "rillaboom"}, "options": []}]}
     b._mark_left_behind(st2, {"team": {}}, tmpl, None)
     assert st2.sides[0].mons[2].vol.get("not_brought") and not st2.sides[0].mons[3].vol.get("not_brought")
+
+
+def test_sleeping_pokemon_stay_asleep_in_the_search():
+    from pokeagent.protocol import apply_log, read_log
+    from pokeagent.engine import resolve
+    log = ["|start", "|switch|p1a: Iron Hands|Iron Hands, L50|100/100", "|switch|p2a: Amoonguss|Amoonguss, L50|220/220",
+           "|turn|1", "|move|p2a: Amoonguss|Spore|p1a: Iron Hands", "|-status|p1a: Iron Hands|slp|[from] move: Spore",
+           "|turn|2"]
+    st = State([Side([Mon.fresh(build("Amoonguss"))], [0, None]), Side([Mon.fresh(build("Iron Hands"))], [0, None])],
+               Field(), turn=2)
+    st.sides[1].mons[0].status = "slp"
+    apply_log(st, read_log(log), "p2")
+    assert st.sides[1].mons[0].status_turns == 2
+    # a fresh sleeper can't act this turn, so it doesn't hurt us
+    nxt = resolve(st, [[("move", "protect", 0), ("pass",)], [("move", "closecombat", 1), ("pass",)]])
+    assert nxt.sides[1].mons[0].status == "slp"

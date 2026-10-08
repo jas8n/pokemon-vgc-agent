@@ -150,6 +150,8 @@ def make_mon(build: Build, summary: dict | None, opponent: bool) -> Mon:
         mon.hp, mon.fainted = 0, True
     else:
         mon.status = st
+        if st == "slp":
+            mon.status_turns = 2  # no counter on the board; refined from the battle log when available
     mon.boosts = _boosts(summary)
     item = summary.get("item")
     if isinstance(item, str) and item not in ("unknown_item", "unknownitem"):
