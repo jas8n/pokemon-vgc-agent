@@ -63,6 +63,7 @@ class PokemonAgent:
         self.my_ids: list[str] = []
         self.opp_ids: list[str] = []
         self.opp_preview: list[dict] = []
+        self.brought: list[str] = []  # species ids of the four we chose at Team Preview
         self.came_in: dict[str, int] = {}  # "side:species" -> turn it was first seen active this stint
         self.protects: dict[str, tuple[int, int]] = {}  # our species -> (turn of last Protect, streak)
         self.rng = random.Random()
@@ -78,7 +79,7 @@ class PokemonAgent:
             self._match_file().write_text(json.dumps({
                 "me": self.me, "my_ids": self.my_ids, "opp_ids": self.opp_ids,
                 "cards": {k: v for k, v in self.cards.items() if k in keep},
-                "opp_preview": self.opp_preview,
+                "opp_preview": self.opp_preview, "brought": self.brought,
             }))
         except Exception:
             pass
@@ -94,6 +95,7 @@ class PokemonAgent:
             self.opp_ids = data.get("opp_ids", [])
             self.cards.update(data.get("cards", {}))
             self.opp_preview = data.get("opp_preview", [])
+            self.brought = data.get("brought", [])
         except Exception:
             pass
 
@@ -253,6 +255,8 @@ class PokemonAgent:
             key = to_id(your[i].get("species") or your[i].get("name"))
             return next((r for r in roster_ids if to_id(r) == key), key)
 
+        self.brought = [to_id(species_id(i)) for i in bring]
+        self._save()
         reason = (f"Bringing {', '.join(mine[i].name for i in bring)}; "
                   f"leading {mine[leads[0]].name} + {mine[leads[1]].name}.")
         _log(f"preview: {reason}")
@@ -287,6 +291,7 @@ class PokemonAgent:
             apply_log(st, facts, my_player(obs))
         else:
             self._track_turns(st)
+        self._mark_left_behind(st, obs, template, facts)
 
         if not log:
             self._apply_protect_streaks(st)
@@ -316,6 +321,26 @@ class PokemonAgent:
                 current[key] = self.came_in.get(key, st.turn)
                 mon.turns_out = max(mon.turns_out, st.turn - current[key])
         self.came_in = current
+
+    def _mark_left_behind(self, st, obs: dict, template: dict, facts) -> None:
+        """The board lists our whole roster of six; only four were brought. Mark the other two so
+        they aren't counted, switched to, or used as replacements in the search (they were, before)."""
+        brought = set(self.brought)
+        if not brought:
+            # No preview memory: anything that has been on the field or is offered as a switch was brought
+            me = my_player(obs)
+            brought |= {sp for (p, sp) in (facts.came_in if facts else {}) if p == me}
+            for slot in template.get("slots") or []:
+                if slot.get("active"):
+                    brought.add(to_id(slot["active"].get("species")))
+                for opt in slot.get("options") or []:
+                    if opt.get("type") == "switch":
+                        brought.add(to_id(opt.get("species")))
+        if len(brought) < 2:
+            return
+        for mon in st.sides[0].mons:
+            if mon.sid not in brought and not any(mon.sid.startswith(b) or b.startswith(mon.sid) for b in brought):
+                mon.vol["not_brought"] = True
 
     def _apply_protect_streaks(self, st) -> None:
         for slot in (0, 1):

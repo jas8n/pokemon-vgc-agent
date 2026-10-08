@@ -182,3 +182,21 @@ def test_draft_only_picks_from_the_legal_list():
     assert isinstance(action, LegalAction) and action.action_id in {f"draft_pick:{c['card_id']}" for c in legal}
     import shutil
     shutil.rmtree(am.LOG_DIR, ignore_errors=True)
+
+
+def test_left_behind_pokemon_are_not_in_the_battle():
+    from agent.agent import PokemonAgent
+    a = PokemonAgent()
+    a.brought = ["incineroar", "rillaboom"]
+    st = State([Side([Mon.fresh(build("Incineroar")), Mon.fresh(build("Rillaboom")), Mon.fresh(build("Amoonguss"))],
+                     [0, 1]), Side([Mon.fresh(build("Urshifu-Rapid-Strike"))], [0, None])], Field())
+    a._mark_left_behind(st, {"team": {}}, {"slots": []}, None)
+    assert st.sides[0].mons[2].vol.get("not_brought") and st.sides[0].bench() == [] and st.sides[0].alive_count() == 2
+    # without preview memory, the battle itself shows what was brought
+    b = PokemonAgent()
+    st2 = State([Side([Mon.fresh(build("Incineroar")), Mon.fresh(build("Rillaboom")), Mon.fresh(build("Amoonguss")),
+                       Mon.fresh(build("Gyarados"))], [0, 1]), Side([Mon.fresh(build("Urshifu-Rapid-Strike"))], [0, None])], Field())
+    tmpl = {"slots": [{"slot": 0, "active": {"species": "incineroar"}, "options": [{"type": "switch", "species": "gyarados"}]},
+                      {"slot": 1, "active": {"species": "rillaboom"}, "options": []}]}
+    b._mark_left_behind(st2, {"team": {}}, tmpl, None)
+    assert st2.sides[0].mons[2].vol.get("not_brought") and not st2.sides[0].mons[3].vol.get("not_brought")

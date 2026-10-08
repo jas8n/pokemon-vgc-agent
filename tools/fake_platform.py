@@ -62,6 +62,9 @@ def summary(mon: Mon, opponent: bool, active: bool) -> dict:
     }
 
 
+LEFT_BEHIND: list = []  # our roster Pokémon not brought; the real board still lists them in `team`
+
+
 def battle_obs(st: State, side: int) -> dict:
     me, opp = st.sides[side], st.sides[1 - side]
     f = st.field
@@ -92,7 +95,9 @@ def battle_obs(st: State, side: int) -> dict:
                            for i in me.active],
         "opponent_active_pokemon": [summary(opp.mons[i], True, True) if i is not None and opp.mons[i].alive else None
                                     for i in opp.active],
-        "team": {f"p{side + 1}: {m.name}": summary(m, False, i in me.active) for i, m in enumerate(me.mons)},
+        "team": {**{f"p{side + 1}: {m.name}": summary(m, False, i in me.active) for i, m in enumerate(me.mons)},
+                 **({f"p{side + 1}: {b.name}": summary(Mon.fresh(b), False, False) for b in LEFT_BEHIND}
+                    if side == 0 else {})},
         "opponent_team": {f"p{2 - side}: {m.name}": summary(m, True, i in opp.active)
                           for i, m in enumerate(opp.mons) if m.revealed},
         "side_conditions": conds(me), "opponent_side_conditions": conds(opp),
@@ -204,6 +209,7 @@ def run_match(rng: random.Random, verbose: bool = False, me_first: bool = True) 
     if verbose:
         print("bring:", [b.name for b in bring], "leads:", [bring[i].name for i in leads])
 
+    LEFT_BEHIND[:] = [b for b in my_b if b not in bring]
     s0 = Side([Mon.fresh(b) for b in bring], list(leads))
     s1 = Side([Mon.fresh(b) for b in their4], tl)
     for i, m in enumerate(s1.mons):
