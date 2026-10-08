@@ -43,6 +43,10 @@ CATALOG = LOG_DIR / "cards_seen.jsonl"
 # Showdown's own timer: 90 s per turn and 420 s for the whole battle, so stay well inside it
 PREVIEW_BUDGET_S = 15.0
 TURN_BUDGET_S = 8.0
+# Points subtracted per switching slot in a normal turn (a Pokémon is worth ~100). Live games showed
+# more switching than opponents, including turn-1 switches out of the leads Team Preview chose;
+# offline it is neutral (82-78 over 160 games), so it costs nothing measurable there.
+SWITCH_COST = 20.0
 DEFAULT_EVS = {s: 84 for s in ("hp", "atk", "def", "spa", "spd", "spe")}
 
 
@@ -285,7 +289,7 @@ class PokemonAgent:
             reason = "Bringing in " + " and ".join(
                 st.sides[0].mons[a[1]].name for a in choice if a[0] == "switch") + "."
         else:
-            choice, ranked, likely = decide(st, per_slot, side=0, budget_s=TURN_BUDGET_S, return_scores=True, depth=2)
+            choice, ranked, likely = decide(st, per_slot, side=0, budget_s=TURN_BUDGET_S, return_scores=True, depth=2, switch_cost=SWITCH_COST)
             reason = self._explain(st, choice)
             self._record_protects(st, choice)
             _log(f"turn {st.turn}: {choice} | expect opp {likely[0][0] if likely else '?'}")

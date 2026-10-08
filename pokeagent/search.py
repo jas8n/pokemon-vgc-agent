@@ -167,7 +167,7 @@ def _second_ply(state: State, side: int, J0, J1, q, scores, t0: float, budget_s:
 
 def decide(state: State, our_options: list[list[Action]], side: int = 0, opp_options: list[list[Action]] | None = None,
            budget_s: float = 8.0, keep: int = 5, beta: float = 0.06, robustness: float = 0.3,
-           return_scores: bool = False, depth: int = 1):
+           return_scores: bool = False, depth: int = 1, switch_cost: float = 0.0):
     """Best joint action for `side`. our_options/opp_options are per-slot lists of engine Actions."""
     t0 = time.time()
     opp = 1 - side
@@ -226,7 +226,8 @@ def decide(state: State, our_options: list[list[Action]], side: int = 0, opp_opt
         tie = 0.01 * sum(immediate_damage_value(state, side, sl, m, J0[i][sl])
                          for sl in (0, 1) if J0[i][sl][0] == "move"
                          and (m := state.sides[side].active_mon(sl)) is not None)
-        scores.append((1 - robustness) * exp_v + robustness * worst + tie)
+        switches = sum(1 for sl in (0, 1) if J0[i][sl][0] == "switch")
+        scores.append((1 - robustness) * exp_v + robustness * worst + tie - switch_cost * switches)
     if depth >= 2 and time.time() - t0 < budget_s * 0.5:
         scores = _second_ply(state, side, J0, J1, q, scores, t0, budget_s)
     best = max(range(n0), key=lambda i: scores[i])
