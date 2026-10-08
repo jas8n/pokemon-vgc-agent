@@ -552,7 +552,7 @@ class Resolver:
         if dmg >= tgt.hp and tgt.vol.get("endure"):
             dmg = tgt.hp - 1
         tgt.hp -= dmg
-        tgt.hits_taken += 1
+        tgt.hits_taken += max(1, int(round(calc.num_hits(attacker, move_id))))
         if tgt.hp <= 0:
             tgt.hp, tgt.fainted = 0, True
             self.log.append(f"p{ts + 1} {tgt.name} fainted")
@@ -563,6 +563,7 @@ class Resolver:
         s = self.s
         md = move_data(move_id)
         fl = flags(move_id)
+        hits = max(1, int(round(calc.num_hits(mon, move_id))))
         contact = fl.get("contact") and mon.item != "protectivepads" and not (
             mon.item == "punchingglove" and fl.get("punch"))
         if tgt.alive:
@@ -579,17 +580,18 @@ class Resolver:
                 tgt.item = ""
             if tgt.item in calc.RESIST_BERRIES and calc.RESIST_BERRIES[tgt.item] == mtype and eff > 1:
                 tgt.item = ""
+            # These trigger on every hit of a multi-hit move (Scale Shot into Stamina is +5 Defense)
             if tgt.ability == "stamina":
-                _boost(tgt, "def", 1, s)
+                _boost(tgt, "def", hits, s)
             if tgt.ability == "justified" and mtype == "Dark":
-                _boost(tgt, "atk", 1, s)
+                _boost(tgt, "atk", hits, s)
             if tgt.ability == "weakarmor" and md["category"] == "Physical":
-                _boost(tgt, "def", -1, s)
-                _boost(tgt, "spe", 2, s)
+                _boost(tgt, "def", -hits, s)
+                _boost(tgt, "spe", 2 * hits, s)
             if tgt.ability in ("steamengine",) and mtype in ("Fire", "Water"):
                 _boost(tgt, "spe", 6, s)
             if tgt.ability == "thermalexchange" and mtype == "Fire":
-                _boost(tgt, "atk", 1, s)
+                _boost(tgt, "atk", hits, s)
             if tgt.ability == "angershell" and tgt.hp * 2 <= tgt.maxhp < (tgt.hp + dealt) * 2:
                 for st, v in (("atk", 1), ("spa", 1), ("spe", 1), ("def", -1), ("spd", -1)):
                     _boost(tgt, st, v, s)
@@ -603,9 +605,9 @@ class Resolver:
                         _boost(other, "spe", -1, s, source_foe=True)
         if contact:
             if tgt.item == "rockyhelmet":
-                _chip(mon, mon.maxhp // 6)
+                _chip(mon, hits * (mon.maxhp // 6))
             if tgt.ability in CONTACT_PUNISH:
-                _chip(mon, mon.maxhp // CONTACT_PUNISH[tgt.ability])
+                _chip(mon, hits * (mon.maxhp // CONTACT_PUNISH[tgt.ability]))
             if tgt.ability == "flamebody" and self.chance(0.3) and can_status(mon, "brn", s, side):
                 _set_status(mon, "brn", self.rng)
             if tgt.ability == "static" and self.chance(0.3) and can_status(mon, "par", s, side):

@@ -216,3 +216,15 @@ def test_sleeping_pokemon_stay_asleep_in_the_search():
     # a fresh sleeper can't act this turn, so it doesn't hurt us
     nxt = resolve(st, [[("move", "protect", 0), ("pass",)], [("move", "closecombat", 1), ("pass",)]])
     assert nxt.sides[1].mons[0].status == "slp"
+
+
+def test_stamina_triggers_on_every_hit_of_a_multi_hit_move():
+    import json
+    from pathlib import Path
+    from pokeagent.engine import resolve
+    real = {c["species"]: c for c in json.loads((Path(__file__).parents[1] / "tools" / "real_cards.json").read_text())}
+    dragonite = Mon.fresh(Build.from_card(real["Dragonite"]))      # Loaded Dice Scale Shot
+    archaludon = Mon.fresh(Build.from_card(real["Archaludon"]))    # Stamina
+    st = State([Side([dragonite], [0, None]), Side([archaludon], [0, None])], Field())
+    nxt = resolve(st, [[("move", "scaleshot", 1), ("pass",)], [("move", "protect", 0) if False else ("move", "flashcannon", 1), ("pass",)]])
+    assert nxt.sides[1].mons[0].boosts["def"] >= 4
