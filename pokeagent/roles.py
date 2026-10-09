@@ -28,7 +28,8 @@ META_PRIOR = {
     "ogerponcornerstone": 7.5, "ogerpon": 7, "tornadus": 8, "landorustherian": 7.5, "landorus": 8,
     "ironhands": 8, "farigiraf": 8, "indeedeef": 7.5, "ragingbolt": 8.5, "kingambit": 7.5, "gholdengo": 7.5,
     "ursalunabloodmoon": 7.5, "ursaluna": 7, "whimsicott": 7, "grimmsnarl": 7, "dragonite": 7,
-    "archaludon": 7.5, "pelipper": 6.5, "torkoal": 7, "lilliganthisui": 6.5, "sneasler": 7,
+    "archaludon": 12.0,  # take it first: every opposing agent did (12/12 pools); 87-73 and 86-74 offline
+    "pelipper": 6.5, "torkoal": 7, "lilliganthisui": 6.5, "sneasler": 7,
     "annihilape": 6.5, "maushold": 6.5, "volcarona": 6.5, "ironboulder": 6.5, "ironcrown": 7,
     "gougingfire": 7, "walkingwake": 6.5, "ironbundle": 6.5, "porygon2": 6.5, "dondozo": 6,
     "tatsugiri": 6, "cresselia": 6.5, "hatterene": 6.5, "garchomp": 6, "gyarados": 6, "thundurus": 6.5,
