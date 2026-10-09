@@ -212,6 +212,7 @@ def decide(state: State, our_options: list[list[Action]], side: int = 0, opp_opt
         p = [0.5 * a + 0.5 * b for a, b in zip(p, p_new)]
 
     q = _blend_protect_prior(state, opp, J1, q)
+    q = _blend_switch_prior(state, opp, J1, q)
     likely = sorted(range(n1), key=lambda j: -q[j])
     mass, top = 0.0, []
     for j in likely:
@@ -276,6 +277,40 @@ def _blend_protect_prior(state: State, opp: int, J1, q: list[float]) -> list[flo
                 q[j] = target / len(prot)
         else:
             for j in prot:
+                q[j] *= target / p
+        rest = sum(q[j] for j in other)
+        if rest > 0:
+            for j in other:
+                q[j] *= (1 - target) / rest
+    z = sum(q)
+    return [x / z for x in q]
+
+
+# Same story for switching: on 382 live opponent decisions, cases our model was 80-100% sure of a
+# switch switched only 33% of the time, and cases under 20% still switched 13%. Pulling each
+# opponent Pokémon's switch chance 70% toward the ~20% base rate cut held-out error from 0.164 to 0.127.
+SWITCH_PRIOR_BLEND = 0.7
+SWITCH_BASE_RATE = 0.20
+
+
+def _blend_switch_prior(state: State, opp: int, J1, q: list[float]) -> list[float]:
+    if not SWITCH_PRIOR_BLEND:
+        return q
+    q = list(q)
+    for sl in (0, 1):
+        if state.sides[opp].active_mon(sl) is None:
+            continue
+        sw = [j for j in range(len(J1)) if J1[j][sl][0] == "switch"]
+        if not sw or len(sw) == len(J1):
+            continue
+        p = sum(q[j] for j in sw)
+        target = (1 - SWITCH_PRIOR_BLEND) * p + SWITCH_PRIOR_BLEND * SWITCH_BASE_RATE
+        other = [j for j in range(len(J1)) if j not in set(sw)]
+        if p <= 1e-9:
+            for j in sw:
+                q[j] = target / len(sw)
+        else:
+            for j in sw:
                 q[j] *= target / p
         rest = sum(q[j] for j in other)
         if rest > 0:
