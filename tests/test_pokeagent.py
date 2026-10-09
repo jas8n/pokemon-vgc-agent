@@ -228,3 +228,15 @@ def test_stamina_triggers_on_every_hit_of_a_multi_hit_move():
     st = State([Side([dragonite], [0, None]), Side([archaludon], [0, None])], Field())
     nxt = resolve(st, [[("move", "scaleshot", 1), ("pass",)], [("move", "protect", 0) if False else ("move", "flashcannon", 1), ("pass",)]])
     assert nxt.sides[1].mons[0].boosts["def"] >= 4
+
+
+def test_static_catalog_gives_exact_sets_for_unseen_cards():
+    from pokeagent.catalog import lookup
+    from agent.agent import PokemonAgent
+    inc = lookup("vgc-incineroar")
+    assert inc and inc["species"] == "Incineroar" and len(inc["moves"]) == 4
+    assert lookup(species="incineroar")["moves"] == inc["moves"]
+    # the opponent's first pick, never visible to us this match: exact set, not a guess
+    card = PokemonAgent()._card("vgc-incineroar", {"card_id": "vgc-incineroar", "species": "Incineroar"})
+    assert card["moves"] == inc["moves"] and card["item"] == inc["item"]
+    assert lookup("vgc-not-a-card", "notapokemon") is None

@@ -31,6 +31,7 @@ from examples import smoke_agent
 from pokeagent import draft as drafting
 from pokeagent import preview as previewing
 from pokeagent.dex import to_id
+from pokeagent.catalog import lookup as catalog_lookup
 from pokeagent.guess import guess_card, with_revealed
 from pokeagent.engine import PROTECT_MOVES, Resolver, move_data, slot_options
 from pokeagent.model import Build
@@ -207,11 +208,14 @@ class PokemonAgent:
         species = (roster_entry or {}).get("species")
         if not species:
             return None
-        # A set we never saw (picked before our first look): reuse a card of that species seen this
-        # match, else a stand-in set from the learnset data
+        # A set we never saw this match (picked before our first look): a card of that species seen this
+        # match, else the static card catalog, else a stand-in set from the learnset data
         for c in self.cards.values():
             if to_id(c.get("species")) == to_id(species):
                 return c
+        known = catalog_lookup(card_id, species)
+        if known:
+            return known
         return {**guess_card(species), "card_id": card_id or to_id(species)}
 
     # ---------------- team preview ----------------
@@ -227,6 +231,8 @@ class PokemonAgent:
             key = to_id(entry.get("species") or entry.get("name"))
             card = by_species.get(key) or next(
                 (c for k, c in by_species.items() if k.startswith(key) or key.startswith(k)), None)
+            if card is None:
+                card = catalog_lookup(None, entry.get("species") or entry.get("name"))
             if card is None and not entry.get("moves"):
                 card = guess_card(entry.get("species") or entry.get("name"), to_id(entry.get("ability")))
             if card is None:
@@ -283,6 +289,10 @@ class PokemonAgent:
         for e in list((obs.get("opponent_team") or {}).values()) + list(obs.get("opponent_active_pokemon") or []):
             sp = to_id((e or {}).get("species"))
             if sp and sp not in opp_builds and sp not in my_builds:
+                known = catalog_lookup(None, sp)
+                if known:
+                    opp_builds[sp] = Build.from_card(known)
+                    continue
                 revealed = sorted((facts.moves_used if facts else {}).get((opp_player, sp), set()))
                 opp_builds[sp] = Build.from_card(with_revealed(guess_card(sp, to_id(e.get("ability"))), revealed))
         view = parse_board(obs, my_builds, opp_builds, template=template)

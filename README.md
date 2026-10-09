@@ -31,10 +31,17 @@ Components that materially affect gameplay:
 - `pokeagent/dex.py`: Pokédex, move and type data from the `poke-env` package's static Showdown data files (a pip dependency, MIT licensed).
 - `pokeagent/roles.py` `META_PRIOR`: a fixed, hand-written strength table for species, written before the submission deadline.
 - `pokeagent/guess.py`: a stand-in set for an opponent card drafted before we saw the pool, built from Showdown's learnset data plus general knowledge of usual support moves; moves the opponent reveals in battle replace the guesses.
+- `pokeagent/data/cards.json` (read by `pokeagent/catalog.py`): a **static card catalog**, the exact sets
+  of the 47 cards seen in test-match drafts (each card's full set is shown to both players during the
+  draft). Built offline with `tools/build_card_catalog.py` before the submission deadline and never written
+  during play; organizer-approved static knowledge. Used only for a card that wasn't visible in the current
+  match (typically the opponent's first pick when we draft second); cards on offer this match always win.
+- `pokeagent/search.py` opponent-model priors: real opponents' rates of Protect (~28% when available) and
+  switching (~20%), measured from test-match logs and blended into the predicted opponent replies.
 - `pokeagent/sample_cards.py`: example sets used only for offline testing.
 
 **Information use.** The agent reads only its own seat's observations through the starter's MCP
-connection. Each match starts with empty memory: within a match it keeps the cards it has seen
+connection plus the static reference data above. Each match starts with empty memory: within a match it keeps the cards it has seen
 in `logs/match_<session>_<seat>.json` (used only to resume that same match after a crash). It never reads
 data from earlier matches. `logs/cards_seen.jsonl` is written for offline analysis only.
 
