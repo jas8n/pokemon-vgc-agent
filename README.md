@@ -46,7 +46,8 @@ in `logs/match_<session>_<seat>.json` (used only to resume that same match after
 data from earlier matches. `logs/cards_seen.jsonl` is written for offline analysis only.
 
 **Records.** `logs/decisions_<session>_<seat>.jsonl` logs every action sent, with its timestamp, phase,
-state version and public reason. Run output can also be kept with
+state version and the agent's reason. Reasons are **not** sent to the platform (`SHARE_REASONS` in
+`agent/agent.py`): public reasons are optional and would show spectators our lineup, leads and plans. Run output can also be kept with
 `python -m agent --tournament 2>&1 | tee logs/run_$(date +%F).log`.
 
 Not published: the `.env` file holding the Official Agent Key. Platform game guide:

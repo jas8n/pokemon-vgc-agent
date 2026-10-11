@@ -41,6 +41,9 @@ from pokeagent.search import decide
 
 LOG_DIR = Path(__file__).resolve().parents[1] / "logs"
 CATALOG = LOG_DIR / "cards_seen.jsonl"
+# Public reasons (shown to spectators) can reveal our lineup, leads and plans, and aren't required,
+# so they're kept in our local decision log (logs/decisions_*.jsonl) and not sent to the platform.
+SHARE_REASONS = False
 # Showdown's own timer: 90 s per turn and 420 s for the whole battle, so stay well inside it
 PREVIEW_BUDGET_S = 15.0
 TURN_BUDGET_S = 8.0
@@ -146,6 +149,8 @@ class PokemonAgent:
             result = WithReasoning(smoke_agent.choose_action(state, None), "Playing a safe default move.")
         _log(f"{phase} decided in {time.time() - t0:.1f}s")
         self._record(state, phase, result, time.time() - t0)
+        if not SHARE_REASONS and isinstance(result, WithReasoning):
+            return result.action  # the reason stays in our local decision log only
         return result
 
     def _record(self, state: GameState, phase: str, result, seconds: float) -> None:

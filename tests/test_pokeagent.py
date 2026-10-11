@@ -240,3 +240,23 @@ def test_static_catalog_gives_exact_sets_for_unseen_cards():
     card = PokemonAgent()._card("vgc-incineroar", {"card_id": "vgc-incineroar", "species": "Incineroar"})
     assert card["moves"] == inc["moves"] and card["item"] == inc["item"]
     assert lookup("vgc-not-a-card", "notapokemon") is None
+
+
+def test_reasons_stay_private_but_are_logged():
+    import json, shutil
+    import agent.agent as am
+    from altruagent import DecisionContext, GameState, LegalAction, WithReasoning
+    am.LOG_DIR = am.LOG_DIR.parent / "logs_test_private"
+    cards = [CARDS["Incineroar"], CARDS["Flutter Mane"]]
+    obs = {"phase": "draft", "pick_number": 1, "available_cards": cards, "rosters": {}}
+    st = GameState.from_mcp_state({"session_id": "s", "game_type": "pokemon_vgc_doubles_draft", "phase": "draft",
+                                   "observation": obs, "is_current_actor": True, "legal_actions": {"actions": [
+                                       {"action_id": f"draft_pick:{c['card_id']}", "label": c["species"],
+                                        "input": {"action": {"type": "draft_pick", "card_id": c["card_id"]}}}
+                                       for c in cards], "state_version": 1}})
+    out = am.PokemonAgent().choose_action(st, DecisionContext(session_id="s", tournament_id=None,
+                                                              game_type="pokemon_vgc_doubles_draft", agent_id="me"))
+    assert not isinstance(out, WithReasoning) and isinstance(out, LegalAction)
+    logged = [json.loads(x) for f in am.LOG_DIR.glob("decisions_*.jsonl") for x in f.read_text().splitlines()]
+    assert logged and logged[-1]["reason"]
+    shutil.rmtree(am.LOG_DIR, ignore_errors=True)
