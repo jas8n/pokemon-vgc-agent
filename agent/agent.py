@@ -47,10 +47,9 @@ SHARE_REASONS = False
 # Showdown's own timer: 90 s per turn and 420 s for the whole battle, so stay well inside it
 PREVIEW_BUDGET_S = 15.0
 TURN_BUDGET_S = 8.0
-# Points subtracted per switching slot in a normal turn (a Pokémon is worth ~100). Live games showed
-# more switching than opponents, including turn-1 switches out of the leads Team Preview chose;
-# offline it is neutral (82-78 over 160 games), so it costs nothing measurable there.
-SWITCH_COST = 20.0
+# Points subtracted per switching slot in a normal turn (a Pokémon is worth ~100). A penalty of 20 was
+# tried; in real Pokémon Showdown battles no penalty beat it 179-137 over 316 matches, so it is off.
+SWITCH_COST = 0.0
 DEFAULT_EVS = {s: 84 for s in ("hp", "atk", "def", "spa", "spd", "spe")}
 
 
