@@ -50,6 +50,9 @@ TURN_BUDGET_S = 8.0
 # Points subtracted per switching slot in a normal turn (a Pokémon is worth ~100). A penalty of 20 was
 # tried; in real Pokémon Showdown battles no penalty beat it 179-137 over 316 matches, so it is off.
 SWITCH_COST = 0.0
+# Weight on the opponent's best reply versus their expected reply when scoring our plans (the search
+# default is 0.3). In real Pokémon Showdown battles, 0.6 beat 0.3 by 218-177 over 395 matches.
+ROBUSTNESS = 0.6
 DEFAULT_EVS = {s: 84 for s in ("hp", "atk", "def", "spa", "spd", "spe")}
 
 
@@ -317,7 +320,7 @@ class PokemonAgent:
             reason = "Bringing in " + " and ".join(
                 st.sides[0].mons[a[1]].name for a in choice if a[0] == "switch") + "."
         else:
-            choice, ranked, likely = decide(st, per_slot, side=0, budget_s=TURN_BUDGET_S, return_scores=True, depth=2, switch_cost=SWITCH_COST)
+            choice, ranked, likely = decide(st, per_slot, side=0, budget_s=TURN_BUDGET_S, return_scores=True, depth=2, switch_cost=SWITCH_COST, robustness=ROBUSTNESS)
             reason = self._explain(st, choice)
             self._record_protects(st, choice)
             _log(f"turn {st.turn}: {choice} | expect opp {likely[0][0] if likely else '?'}")
@@ -390,7 +393,7 @@ class PokemonAgent:
                     nxt.sides[0].mons[act[1]].turns_out = 0
                     r.on_entry(0, slot)
             ours = [slot_options(nxt, 0, 0), slot_options(nxt, 0, 1)]
-            _, ranked, _ = decide(nxt, ours, side=0, budget_s=3, keep=4, return_scores=True)
+            _, ranked, _ = decide(nxt, ours, side=0, budget_s=3, keep=4, return_scores=True, robustness=ROBUSTNESS)
             v = ranked[0][1] if ranked else -1e9
             if v > best_v:
                 best, best_v = (a, b), v
