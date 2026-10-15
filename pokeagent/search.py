@@ -253,8 +253,10 @@ def _drop_failing(state: State, side: int, slot: int, options: list[Action]) -> 
 # live opponent decisions its Protect forecasts scored worse than a flat base rate (Brier 0.224 vs
 # ~0.17), and blending in the base rate cut held-out error to 0.183. So each opponent Pokémon's chance
 # of protecting is pulled toward PROTECT_BASE_RATE when Protect is available (not used last turn).
+# The rate was 0.28 from those 255 decisions; recounted over 84 live games (705 chances) it is 0.22, the
+# same on turn 1 (23%) as later (22%).
 PROTECT_PRIOR_BLEND = 0.6
-PROTECT_BASE_RATE = 0.28
+PROTECT_BASE_RATE = 0.22
 _PROTECT = {"protect", "detect", "spikyshield", "kingsshield", "silktrap", "banefulbunker", "burningbulwark", "obstruct"}
 
 
