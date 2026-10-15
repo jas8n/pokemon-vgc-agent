@@ -36,6 +36,9 @@ Components that materially affect gameplay:
   draft). Built offline with `tools/build_card_catalog.py` before the submission deadline and never written
   during play; organizer-approved static knowledge. Used only for a card that wasn't visible in the current
   match (typically the opponent's first pick when we draft second); cards on offer this match always win.
+- `pokeagent/data/card_ratings.json` (read by `pokeagent/roles.py`): **static draft ratings** for those 47
+  sets in this format, written card by card offline; they replace the general meta-reputation entries for
+  these species in the draft scorer. Static, never written during play.
 - `pokeagent/search.py` opponent-model priors: real opponents' rates of Protect (~28% when available) and
   switching (~20%), measured from test-match logs and blended into the predicted opponent replies.
 - `pokeagent/sample_cards.py`: example sets used only for offline testing.

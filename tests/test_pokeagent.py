@@ -260,3 +260,16 @@ def test_reasons_stay_private_but_are_logged():
     logged = [json.loads(x) for f in am.LOG_DIR.glob("decisions_*.jsonl") for x in f.read_text().splitlines()]
     assert logged and logged[-1]["reason"]
     shutil.rmtree(am.LOG_DIR, ignore_errors=True)
+
+
+def test_every_known_card_has_a_rating():
+    import json
+    from pathlib import Path
+    from pokeagent import roles
+    from pokeagent.model import Build
+    cards = json.loads((Path(roles.__file__).parent / "data" / "cards.json").read_text())
+    ratings = json.loads((Path(roles.__file__).parent / "data" / "card_ratings.json").read_text())["ratings"]
+    for c in cards:
+        sid = Build.from_card(c).sid
+        assert sid in ratings, sid
+        assert roles.META_PRIOR[sid] == ratings[sid]

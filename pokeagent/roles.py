@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 
 from . import calc
 from .calc import move_data
@@ -46,6 +48,9 @@ META_PRIOR = {
     "goodra": 5, "goodrahisui": 5, "clefairy": 6.5, "dusclops": 6, "politoed": 6, "ninetalesalola": 6,
     "sylveon": 6.5, "salamence": 6.5, "sableye": 6, "klefki": 5.5, "milotic": 5.5, "lucario": 5,
 }
+# Static knowledge base: ratings for the known draft cards' exact sets, which win over the general entries
+# above (data/card_ratings.json says how they were made and tested)
+META_PRIOR.update(json.loads((Path(__file__).parent / "data" / "card_ratings.json").read_text())["ratings"])
 
 
 @dataclass
