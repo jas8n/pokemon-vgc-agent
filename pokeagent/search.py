@@ -187,6 +187,10 @@ def decide(state: State, our_options: list[list[Action]], side: int = 0, opp_opt
     theirs0 = _prune_slot(state, opp, 0, opp_options[0], opp_default[1], my_default, keep)
     theirs1 = _prune_slot(state, opp, 1, opp_options[1], opp_default[0], my_default, keep)
     J0 = joint_actions([mine0, mine1]) or [(our_options[0][0], our_options[1][0])]
+    if state.turn == 1:
+        # No double switch on turn 1: top ladder players do it in 4 of 1,998 turn 1s, and it gives up the
+        # leads' first-turn moves (Fake Out) while both replacements take hits on the way in
+        J0 = [j for j in J0 if not (j[0][0] == "switch" and j[1][0] == "switch")] or J0
     J1 = joint_actions([theirs0, theirs1]) or [(opp_options[0][0], opp_options[1][0])]
 
     M = []

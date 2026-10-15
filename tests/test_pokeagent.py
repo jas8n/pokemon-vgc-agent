@@ -314,3 +314,22 @@ def test_glaive_rush_doubles_damage_taken_until_next_move():
     lost_plain = plain.maxhp - plain.hp
     lost_rushed = rushed.maxhp - rushed.hp
     assert lost_rushed >= 1.8 * lost_plain or rushed.fainted
+
+
+def test_no_double_switch_on_turn_one():
+    import json
+    from pathlib import Path
+    from pokeagent import search
+    from pokeagent.engine import slot_options, start_battle
+    from pokeagent.model import Build, Field, Mon, Side, State
+    cards = {c["card_id"]: c for c in json.loads((Path(search.__file__).parent / "data" / "cards.json").read_text())}
+    B = lambda k: Mon.fresh(Build.from_card(cards["vgc-" + k]))
+    for turn in (1, 2):
+        st = State([Side([B("chi-yu"), B("incineroar"), B("iron-hands"), B("dragonite")], [0, 1]),
+                    Side([B("basculegion"), B("iron-bundle"), B("rillaboom"), B("baxcalibur")], [0, 1])], Field(), turn=turn)
+        start_battle(st)
+        _, ranked, _ = search.decide(st, [slot_options(st, 0, 0), slot_options(st, 0, 1)], side=0,
+                                     budget_s=4, return_scores=True)
+        both = [p for p, _ in ranked if p[0][0] == "switch" and p[1][0] == "switch"]
+        if turn == 1:
+            assert not both
