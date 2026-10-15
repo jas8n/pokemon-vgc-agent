@@ -239,13 +239,23 @@ def decide(state: State, our_options: list[list[Action]], side: int = 0, opp_opt
     return J0[best]
 
 
+CHOICE_ITEMS = {"choicescarf", "choiceband", "choicespecs"}
+
+
 def _drop_failing(state: State, side: int, slot: int, options: list[Action]) -> list[Action]:
-    """Remove moves that are certain to fail (Fake Out after the first turn), unless nothing else is left."""
+    """Remove moves that are certain to fail (Fake Out after the first turn), and status moves from a
+    Choice item holder that isn't locked yet: they lock it into Protect for as long as it stays in, which
+    the 2-turn search can't see (live: Scarf Landorus protected with nobody left to switch to and was
+    stuck on Protect for the rest of the game). Unless nothing else is left."""
     from .engine import FIRST_TURN_ONLY
     mon = state.sides[side].active_mon(slot)
-    if mon is None or mon.turns_out == 0:
+    if mon is None:
         return options
-    kept = [o for o in options if not (o[0] == "move" and o[1] in FIRST_TURN_ONLY)]
+    kept = options
+    if mon.turns_out > 0:
+        kept = [o for o in kept if not (o[0] == "move" and o[1] in FIRST_TURN_ONLY)]
+    if mon.item in CHOICE_ITEMS and not mon.choice_lock:
+        kept = [o for o in kept if not (o[0] == "move" and move_data(o[1])["category"] == "Status")]
     return kept or options
 
 

@@ -273,3 +273,21 @@ def test_every_known_card_has_a_rating():
         sid = Build.from_card(c).sid
         assert sid in ratings, sid
         assert roles.META_PRIOR[sid] == ratings[sid]
+
+
+def test_choice_holder_is_never_offered_protect():
+    import json
+    from pathlib import Path
+    from pokeagent import search
+    from pokeagent.engine import slot_options
+    from pokeagent.model import Build, Field, Mon, Side, State
+    cards = {c["card_id"]: c for c in json.loads((Path(search.__file__).parent / "data" / "cards.json").read_text())}
+    lando = Mon.fresh(Build.from_card(cards["vgc-landorus-therian"]))
+    st = State([Side([lando, Mon.fresh(Build.from_card(cards["vgc-archaludon"]))], [0, 1]),
+                Side([Mon.fresh(Build.from_card(cards["vgc-milotic"])),
+                      Mon.fresh(Build.from_card(cards["vgc-rillaboom"]))], [0, 1])], Field())
+    opts = search._drop_failing(st, 0, 0, slot_options(st, 0, 0))
+    assert not any(o[0] == "move" and o[1] == "protect" for o in opts)
+    assert any(o[0] == "move" and o[1] == "earthquake" for o in opts)
+    # Archaludon (Leftovers) keeps Protect
+    assert any(o[0] == "move" and o[1] == "protect" for o in search._drop_failing(st, 0, 1, slot_options(st, 0, 1)))
