@@ -48,8 +48,10 @@ SHARE_REASONS = False
 PREVIEW_BUDGET_S = 15.0
 TURN_BUDGET_S = 8.0
 # Points subtracted per switching slot in a normal turn (a Pokémon is worth ~100). A penalty of 20 was
-# tried; in real Pokémon Showdown battles no penalty beat it 179-137 over 316 matches, so it is off.
-SWITCH_COST = 0.0
+# tried; in real Pokémon Showdown battles no penalty beat it 179-137 over 316 matches, and 10 did as well
+# (111-85 vs 20, then 98-102 vs 0). Live games with no penalty switched more than opponents (25% of our
+# actions vs 21%) and threw away leads, so the penalty is 10: the same tested strength, less switching.
+SWITCH_COST = 10.0
 # Weight on the opponent's best reply versus their expected reply when scoring our plans (the search
 # default is 0.3). In real Pokémon Showdown battles, 0.6 beat 0.3 by 218-177 over 395 matches.
 ROBUSTNESS = 0.6

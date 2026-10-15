@@ -1,5 +1,5 @@
 {
- "_about": "Card ratings for the 47 known draft cards (pokeagent/data/cards.json), on the META_PRIOR scale (roles.py). Written card by card for these exact sets in this format (level 50, no Tera, bring 4 of 6) and read at import; they replace the general meta-reputation entries for these species. In real Pokemon Showdown battles, drafting with them beat the old table 265-85 over 350 matches.",
+ "_about": "Card ratings for the 47 known draft cards (pokeagent/data/cards.json), on the META_PRIOR scale (roles.py). Written card by card for these exact sets in this format (level 50, no Tera, bring 4 of 6) and read at import; they replace the general meta-reputation entries for these species. In real Pokemon Showdown battles, drafting with them beat the old table 265-85 over 350 matches. Dragonite was lowered from 7.5 to 6.5 after live games: 4x weak to Ice in an Ice-heavy pool, it fainted in 12 of 15 games for 0.58 KOs per faint (real-engine check: no cost).",
  "ratings": {
   "archaludon": 12.0,
   "incineroar": 9.5,
@@ -12,7 +12,7 @@
   "ironhands": 8,
   "landorustherian": 8,
   "tornadus": 8,
-  "dragonite": 7.5,
+  "dragonite": 6.5,
   "farigiraf": 7.5,
   "kingambit": 7.5,
   "ursaluna": 7.5,
