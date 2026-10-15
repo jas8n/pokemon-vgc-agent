@@ -348,6 +348,7 @@ class Resolver:
     def use_move(self, side: int, slot: int, mon: Mon, move_id: str, target: int) -> None:
         md = move_data(move_id)
         s = self.s
+        mon.vol.pop("glaiverush", None)  # Glaive Rush's drawback lasts until the user's next move
         if mon.vol.get("flinch"):
             return
         if mon.status == "slp":
@@ -369,6 +370,8 @@ class Resolver:
             if not mon.choice_lock:
                 mon.choice_lock = move_id
         mon.vol["lastmove"] = move_id
+        if move_id == "glaiverush":
+            mon.vol["glaiverush"] = True  # until its next move, attacks against it deal double damage
         if mon.vol.get("encore"):
             move_id = mon.vol.get("encoremove", move_id)
             md = move_data(move_id)
@@ -543,6 +546,8 @@ class Resolver:
         return False
 
     def deal(self, tgt: Mon, dmg: int, ts: int, attacker: Mon, move_id: str) -> int:
+        if tgt.vol.get("glaiverush"):
+            dmg *= 2
         dmg = min(dmg, tgt.hp)
         if dmg >= tgt.hp and tgt.hp == tgt.maxhp and (tgt.item == "focussash" or tgt.ability == "sturdy") \
                 and calc.num_hits(attacker, move_id) == 1:

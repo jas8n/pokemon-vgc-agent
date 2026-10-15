@@ -203,6 +203,8 @@ def apply_log(state: State, facts: LogFacts, me: str, mon_items: dict | None = N
             last = facts.last_move.get(key)
             if last:
                 mon.vol["lastmove"] = last
+                if last == "glaiverush":  # hasn't moved since: still takes double damage
+                    mon.vol["glaiverush"] = True
                 if side_idx == 1 and (mon.item.startswith("choice") or mon.build.ability == "gorillatactics") \
                         and last in mon.build.moves and mon.turns_out > 0:
                     mon.choice_lock = last

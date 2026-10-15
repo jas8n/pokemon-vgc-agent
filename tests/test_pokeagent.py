@@ -291,3 +291,26 @@ def test_choice_holder_is_never_offered_protect():
     assert any(o[0] == "move" and o[1] == "earthquake" for o in opts)
     # Archaludon (Leftovers) keeps Protect
     assert any(o[0] == "move" and o[1] == "protect" for o in search._drop_failing(st, 0, 1, slot_options(st, 0, 1)))
+
+
+def test_glaive_rush_doubles_damage_taken_until_next_move():
+    import json
+    from pathlib import Path
+    from pokeagent import engine
+    from pokeagent.engine import resolve, start_battle
+    from pokeagent.model import Build, Field, Mon, Side, State
+    cards = {c["card_id"]: c for c in json.loads((Path(engine.__file__).parent / "data" / "cards.json").read_text())}
+    B = lambda k: Mon.fresh(Build.from_card(cards["vgc-" + k]))
+
+    def after(bax_move):
+        st = State([Side([B("baxcalibur"), B("cresselia")], [0, 1]),
+                    Side([B("porygon2"), B("arcanine")], [0, 1])], Field())
+        start_battle(st)
+        st = resolve(st, [((("move", bax_move, 2) if bax_move != "protect" else ("move", "iciclespear", 2)),
+                           ("move", "helpinghand", -1)),
+                          (("move", "triattack", 1), ("move", "protect", 0))])
+        return st.sides[0].mons[0]
+    plain, rushed = after("iciclespear"), after("glaiverush")
+    lost_plain = plain.maxhp - plain.hp
+    lost_rushed = rushed.maxhp - rushed.hp
+    assert lost_rushed >= 1.8 * lost_plain or rushed.fainted
