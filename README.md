@@ -7,7 +7,7 @@ the draft, Team Preview or close battle turns. It is built on the official start
 kept below unchanged.
 
 The tournament entry (UCLA AI Agent Gaming Tournament, October 16 2026) played pure-code, at commit
-`3f4fc56`: 6-2, semifinalist.
+`3f4fc56`: 6-2, **3rd place**.
 
 ## How it runs
 
