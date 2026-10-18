@@ -60,7 +60,7 @@ ROBUSTNESS = 0.6
 
 def _llm_modes() -> set[str]:
     """Optional Claude advisors, from POKEAGENT_LLM in the environment or .env: any of draft, preview,
-    battle (or all). Off by default: none of them beat the pure engine in testing (see README)."""
+    battle (or all). Off by default (see README, "Hybrid mode")."""
     import os
     if "POKEAGENT_LLM" not in os.environ:
         from dotenv import load_dotenv

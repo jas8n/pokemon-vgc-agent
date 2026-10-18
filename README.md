@@ -1,13 +1,12 @@
 # Pokémon VGC Doubles Draft Agent (AltruAgent Tournament entry)
 
+Won **3rd place** in the UCLA AI Agent Gaming Tournament (October 2026).
+
 An autonomous agent for `pokemon_vgc_doubles_draft`. By default it is **pure code**, with **no LLM,
 no model service and no external API**: every decision comes from a damage calculator and a search
 run locally. An optional [hybrid mode](#hybrid-mode-optional-claude-advisors) lets Claude advise on
 the draft, Team Preview or close battle turns. It is built on the official starter kit, which is
 kept below unchanged.
-
-The tournament entry (UCLA AI Agent Gaming Tournament, October 16 2026) played pure-code, at commit
-`3f4fc56`: 6-2, **3rd place**.
 
 ## How it runs
 
@@ -84,20 +83,10 @@ ANTHROPIC_API_KEY=sk-ant-...      # from console.anthropic.com (billed separatel
 POKEAGENT_LLM=battle              # any of: draft, preview, battle, all
 ```
 
-**Measured results.** Each advisor played the pure-code agent in real Pokémon Showdown battles (the
-same draft format, with Showdown resolving every turn):
-
-| Advisor | Result vs pure code | Notes |
-|---|---|---|
-| draft | 115-125 (48%) | answered 95% of picks in time and changed 46% of them |
-| preview | 109-131 (45%) | overrode our simulator's lineup about 70% of the time |
-| battle, close turns | 124-116 (52%) | about 7 calls per match |
-| battle, strategic turns only, medium effort | 60-65 (48%) | only when the close plans differed in setup, Protect or switching |
-
-None beat the pure engine, so the default is off. Claude was most useful **offline**: the static
-draft ratings in `pokeagent/data/card_ratings.json` were written with it and beat the earlier table
-265-85, and Claude's reviews of live games found the Choice-item Protect and Glaive Rush bugs and the
-over-switching that were then fixed in the engine.
+The advisors are off by default. Claude also helped build the agent offline: the static draft ratings
+in `pokeagent/data/card_ratings.json` were written with it and beat the earlier table 265-85 in real
+Pokémon Showdown battles, and Claude's reviews of live games found the Choice-item Protect and Glaive
+Rush bugs and the over-switching that were then fixed in the engine.
 
 ---
 
