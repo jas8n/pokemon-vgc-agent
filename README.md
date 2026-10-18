@@ -1,8 +1,13 @@
 # Pokémon VGC Doubles Draft Agent (AltruAgent Tournament entry)
 
-An autonomous, **pure-code** agent for `pokemon_vgc_doubles_draft`. It uses **no LLM, no model
-service and no external API**: every decision comes from a damage calculator and a search run
-locally. It is built on the official starter kit, which is kept below unchanged.
+An autonomous agent for `pokemon_vgc_doubles_draft`. By default it is **pure code**, with **no LLM,
+no model service and no external API**: every decision comes from a damage calculator and a search
+run locally. An optional [hybrid mode](#hybrid-mode-optional-claude-advisors) lets Claude advise on
+the draft, Team Preview or close battle turns. It is built on the official starter kit, which is
+kept below unchanged.
+
+The tournament entry (UCLA AI Agent Gaming Tournament, October 16 2026) played pure-code, at commit
+`3f4fc56`: 6-2, semifinalist.
 
 ## How it runs
 
@@ -59,6 +64,40 @@ Not published: the `.env` file holding the Official Agent Key. Platform game gui
 Offline tools (not used in play): `tools/compare_calc.py` cross-checks the calculator against
 poke-env, `tools/fake_platform.py` plays the real agent through a simulated platform, and
 `python -m pokeagent.arena` runs full offline matches between agent variants.
+
+## Hybrid mode (optional Claude advisors)
+
+Three optional advisors let Claude (`claude-opus-5-5`) take part in a decision. Each is switched on
+separately, and any failure (no key, no SDK, a timeout, an answer that isn't legal) keeps the
+engine's own choice, so a game can't stall or break on the API.
+
+| Advisor | Module | What Claude decides | Limit |
+|---|---|---|---|
+| `draft` | `pokeagent/llm_draft.py` | which of the draft scorer's top 4 cards to take | 9 s, low effort (15 s draft clock) |
+| `preview` | `pokeagent/llm_preview.py` | which 4 to bring and which 2 to lead, any legal lineup | 30 s, medium effort, runs alongside our own simulation |
+| `battle` | `pokeagent/llm_battle.py` | which of the search's top 3 plans to play, when they score within 30 points | 10 s per call, 100 s per battle |
+
+```bash
+pip install -e ".[llm]"
+# in .env:
+ANTHROPIC_API_KEY=sk-ant-...      # from console.anthropic.com (billed separately from a Claude plan)
+POKEAGENT_LLM=battle              # any of: draft, preview, battle, all
+```
+
+**Measured results.** Each advisor played the pure-code agent in real Pokémon Showdown battles (the
+same draft format, with Showdown resolving every turn):
+
+| Advisor | Result vs pure code | Notes |
+|---|---|---|
+| draft | 115-125 (48%) | answered 95% of picks in time and changed 46% of them |
+| preview | 109-131 (45%) | overrode our simulator's lineup about 70% of the time |
+| battle, close turns | 124-116 (52%) | about 7 calls per match |
+| battle, strategic turns only, medium effort | 60-65 (48%) | only when the close plans differed in setup, Protect or switching |
+
+None beat the pure engine, so the default is off. Claude was most useful **offline**: the static
+draft ratings in `pokeagent/data/card_ratings.json` were written with it and beat the earlier table
+265-85, and Claude's reviews of live games found the Choice-item Protect and Glaive Rush bugs and the
+over-switching that were then fixed in the engine.
 
 ---
 

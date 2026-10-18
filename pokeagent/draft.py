@@ -143,6 +143,13 @@ def score_card(key: str, mine: list[str], theirs: list[str], pool: list[str], pi
 def choose_pick(available: list[dict], my_cards: list[dict], their_cards: list[dict],
                 pool_cards: list[dict], picks_left_mine: int = 6) -> tuple[str, str]:
     """Return (card_id, short public reason)."""
+    ranked, reason = rank_picks(available, my_cards, their_cards, pool_cards, picks_left_mine)
+    return ranked[0][1]["card_id"], reason
+
+
+def rank_picks(available: list[dict], my_cards: list[dict], their_cards: list[dict],
+               pool_cards: list[dict], picks_left_mine: int = 6) -> tuple[list[tuple[float, dict]], str]:
+    """Every pickable card as (score, card), best first, and a short public reason for the best."""
     keys = {}
     for c in available + my_cards + their_cards + pool_cards:
         try:
@@ -152,7 +159,7 @@ def choose_pick(available: list[dict], my_cards: list[dict], their_cards: list[d
         keys[c["card_id"]] = register(b)
     avail = [c for c in available if c["card_id"] in keys]
     if not avail:
-        return available[0]["card_id"], "Taking the best remaining card."
+        return [(0.0, available[0])], "Taking the best remaining card."
     mine = [keys[c["card_id"]] for c in my_cards if c["card_id"] in keys]
     theirs = [keys[c["card_id"]] for c in their_cards if c["card_id"] in keys]
     pool = list(dict.fromkeys(keys[c["card_id"]] for c in pool_cards + available + my_cards + their_cards
@@ -160,7 +167,7 @@ def choose_pick(available: list[dict], my_cards: list[dict], their_cards: list[d
     scored = sorted(((score_card(keys[c["card_id"]], mine, theirs, pool, picks_left_mine), c) for c in avail),
                     key=lambda t: -t[0])
     best = scored[0][1]
-    return best["card_id"], _reason(keys[best["card_id"]], mine, theirs)
+    return scored, _reason(keys[best["card_id"]], mine, theirs)
 
 
 def _reason(key: str, mine: list[str], theirs: list[str]) -> str:

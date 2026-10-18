@@ -18,6 +18,9 @@ dependencies = [
 dev = [
     "pytest>=8.0",
 ]
+llm = [
+    "anthropic>=0.40",  # optional Claude advisors (POKEAGENT_LLM; pokeagent/llm_*.py)
+]
 
 [build-system]
 requires = ["setuptools>=68"]

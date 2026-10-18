@@ -29,6 +29,7 @@ from pathlib import Path
 from altruagent import DecisionContext, GameState, WithReasoning
 from examples import smoke_agent
 from pokeagent import draft as drafting
+from pokeagent import llm_battle, llm_draft, llm_preview
 from pokeagent import preview as previewing
 from pokeagent.dex import to_id
 from pokeagent.catalog import lookup as catalog_lookup
@@ -55,6 +56,23 @@ SWITCH_COST = 10.0
 # Weight on the opponent's best reply versus their expected reply when scoring our plans (the search
 # default is 0.3). In real Pokémon Showdown battles, 0.6 beat 0.3 by 218-177 over 395 matches.
 ROBUSTNESS = 0.6
+
+
+def _llm_modes() -> set[str]:
+    """Optional Claude advisors, from POKEAGENT_LLM in the environment or .env: any of draft, preview,
+    battle (or all). Off by default: none of them beat the pure engine in testing (see README)."""
+    import os
+    if "POKEAGENT_LLM" not in os.environ:
+        from dotenv import load_dotenv
+        load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+    modes = {m.strip().lower() for m in os.environ.get("POKEAGENT_LLM", "").split(",") if m.strip()}
+    return {"draft", "preview", "battle"} if "all" in modes else modes
+
+
+_MODES = _llm_modes()
+LLM_DRAFT = "draft" in _MODES      # Claude chooses among the draft scorer's top cards (pokeagent/llm_draft.py)
+LLM_PREVIEW = "preview" in _MODES  # Claude chooses the Team Preview lineup (pokeagent/llm_preview.py)
+LLM_BATTLE = "battle" in _MODES    # Claude chooses among the search's top plans on close turns (llm_battle.py)
 DEFAULT_EVS = {s: 84 for s in ("hp", "atk", "def", "spa", "spd", "spe")}
 
 
@@ -201,8 +219,15 @@ class PokemonAgent:
             return WithReasoning(first, "Taking the best card available.")
         mine = [c for c in (self._card(r.get("card_id"), r) for r in my_entries) if c]
         theirs = [c for c in (self._card(r.get("card_id"), r) for r in their_entries) if c]
-        card_id, reason = drafting.choose_pick(offer, mine, theirs, available + mine + theirs,
-                                               picks_left_mine=6 - len(mine))
+        ranked, reason = drafting.rank_picks(offer, mine, theirs, available + mine + theirs,
+                                             picks_left_mine=6 - len(mine))
+        card_id = ranked[0][1]["card_id"]
+        if LLM_DRAFT:
+            advised = llm_draft.advise(ranked, mine, theirs, available, 6 - len(mine))
+            if advised and advised in legal:
+                if advised != card_id:
+                    _log(f"draft pick {obs.get('pick_number')}: LLM prefers {advised} over {card_id}")
+                card_id = advised
         if card_id not in legal:
             card_id = offer[0]["card_id"]
         if card_id not in self.my_ids:
@@ -264,7 +289,20 @@ class PokemonAgent:
         self._save()
         mine = self._builds_from_preview(your, self.my_ids)
         theirs = self._builds_from_preview(opp, self.opp_ids)
+        advice = None
+        if LLM_PREVIEW:
+            # Claude starts from the quick heuristic lineup and thinks while our simulation runs
+            t0 = time.time()
+            quick = previewing.choose_lineup(mine, theirs, budget_s=2.0, rng=self.rng, simulate=False)
+            advice = llm_preview.PreviewAdvice(mine, theirs).start(*quick)
         bring, leads = previewing.choose_lineup(mine, theirs, budget_s=PREVIEW_BUDGET_S, rng=self.rng)
+        if advice is not None:
+            got = advice.result(llm_preview.TIMEOUT_S - (time.time() - t0), bring, leads)
+            if got:
+                if (set(got[0]), set(got[1])) != (set(bring), set(leads)):
+                    _log(f"preview: LLM prefers {[mine[i].name for i in got[0]]} leading "
+                         f"{[mine[i].name for i in got[1]]}")
+                bring, leads = got
 
         def species_id(i: int) -> str:
             key = to_id(your[i].get("species") or your[i].get("name"))
@@ -323,6 +361,13 @@ class PokemonAgent:
                 st.sides[0].mons[a[1]].name for a in choice if a[0] == "switch") + "."
         else:
             choice, ranked, likely = decide(st, per_slot, side=0, budget_s=TURN_BUDGET_S, return_scores=True, depth=2, switch_cost=SWITCH_COST, robustness=ROBUSTNESS)
+            if LLM_BATTLE:
+                if getattr(self, "_advisor_session", None) != self.session:
+                    self._advisor_session, self._advisor = self.session, llm_battle.BattleAdvisor()
+                pick = self._advisor.choose(st, ranked, likely)
+                if pick is not None and pick != choice:
+                    _log(f"turn {st.turn}: LLM prefers {pick} over {choice}")
+                    choice = pick
             reason = self._explain(st, choice)
             self._record_protects(st, choice)
             _log(f"turn {st.turn}: {choice} | expect opp {likely[0][0] if likely else '?'}")
